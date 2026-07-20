@@ -20,17 +20,7 @@ Monitor = warn_deprecate_class(Monitor1D)
 
 
 def _trial_solution(single_net, nets, ts, conditions):
-    if single_net:  # using a single net
-        us = [
-            con.enforce(single_net, ts)
-            for con in conditions
-        ]
-    else:  # using multiple nets
-        us = [
-            con.enforce(net, ts)
-            for con, net in zip(conditions, nets)
-        ]
-    return us
+    pass
 
 
 def solve(
@@ -264,7 +254,6 @@ def solve_system(
     if single_net and nets:
         raise ValueError('Only one of net and nets should be specified')
 
-    # For backward compatibility defaults to use a single neural network
     if (not single_net) and (not nets):
         single_net = FCNN(
             n_input_units=1,
@@ -274,7 +263,6 @@ def solve_system(
         )
 
     if single_net:
-        # mark the Conditions so that we know which condition correspond to which output unit
         for ith, con in enumerate(conditions):
             con.set_impose_on(ith)
         nets = [single_net] * len(conditions)

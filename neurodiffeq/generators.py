@@ -1,5 +1,3 @@
-"""This module contains atomic generator classes and useful tools to construct complex generators out of atomic ones
-"""
 import torch
 import numpy as np
 from typing import List
@@ -19,38 +17,18 @@ def _chebyshev_second(a, b, n):
     return nodes
 
 def _chebyshev_second_noisy(a, b, n):
-    nodes = torch.cos((torch.arange(n) + (torch.rand(n) * 2 - 1)) / float(n - 1) * np.pi)
-    nodes = ((a + b) + (b - a) * nodes) / 2
-    nodes.requires_grad_(True)
-    return nodes
+    pass
 
 
 def _latin_hypercube(a, b, n):
-    intervals = torch.linspace(a, b, steps=n + 1)
-    points = torch.rand(n) * (intervals[1] - intervals[0])
-    points += intervals[:-1]
-    points = points[torch.randperm(n)]
-    points.requires_grad_(True)
-    return points
+    pass
 
 
 def _compute_log_negative(t_min, t_max, whence):
-    if t_min <= 0 or t_max <= 0:
-        suggested_t_min = 10 ** t_min
-        suggested_t_max = 10 ** t_max
-        raise ValueError(
-            f"In this version of neurodiffeq, "
-            f"the interval [{t_min}, {t_max}] cannot be used for log-sampling in {whence} "
-            f"If you meant to sample from the interval [10 ^ {t_min}, 10 ^ {t_max}], "
-            f"please pass in {suggested_t_min} and {suggested_t_max}"
-        )
-
-    return np.log10(t_min), np.log10(t_max)
+    pass
 
 
 class BaseGenerator:
-    """Base class for all generators; Children classes must implement a `.get_examples` method and a `.size` field.
-    """
 
     def __init__(self):
         self.size = None
@@ -60,8 +38,7 @@ class BaseGenerator:
 
     @staticmethod
     def check_generator(obj):
-        if not isinstance(obj, BaseGenerator):
-            raise ValueError(f"{obj} is not a generator")
+        pass
 
     def __add__(self, other):
         self.check_generator(other)
@@ -76,27 +53,11 @@ class BaseGenerator:
         return MeshGenerator(self, other)
 
     def _internal_vars(self) -> dict:
-        return dict(size=self.size)
+        pass
 
     @staticmethod
     def _obj_repr(obj) -> str:
-        if isinstance(obj, tuple):
-            return '(' + ', '.join(BaseGenerator._obj_repr(item) for item in obj) + ')'
-        if isinstance(obj, list):
-            return '[' + ', '.join(BaseGenerator._obj_repr(item) for item in obj) + ']'
-        if isinstance(obj, set):
-            return '{' + ', '.join(BaseGenerator._obj_repr(item) for item in obj) + '}'
-        if isinstance(obj, dict):
-            return '{' + ', '.join(
-                BaseGenerator._obj_repr(k) + ': ' + BaseGenerator._obj_repr(obj[k])
-                for k in obj
-            ) + '}'
-
-        if isinstance(obj, torch.Tensor):
-            return f'tensor(shape={tuple(obj.shape)})'
-        if isinstance(obj, np.ndarray):
-            return f'ndarray(shape={tuple(obj.shape)})'
-        return repr(obj)
+        pass
 
     def __repr__(self):
         d = self._internal_vars()
@@ -105,32 +66,6 @@ class BaseGenerator:
 
 
 class Generator1D(BaseGenerator):
-    """An example generator for generating 1-D training points.
-
-    :param size: The number of points to generate each time `get_examples` is called.
-    :type size: int
-    :param t_min: The lower bound of the 1-D points generated, defaults to 0.0.
-    :type t_min: float, optional
-    :param t_max: The upper boound of the 1-D points generated, defaults to 1.0.
-    :type t_max: float, optional
-    :param method:
-        The distribution of the 1-D points generated.
-
-        - If set to 'uniform',
-          the points will be drew from a uniform distribution Unif(t_min, t_max).
-        - If set to 'equally-spaced',
-          the points will be fixed to a set of linearly-spaced points that go from t_min to t_max.
-        - If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points.
-        - If set to 'log-spaced', the points will be fixed to a set of log-spaced points that go from t_min to t_max.
-        - If set to 'log-spaced-noisy', a normal noise will be added to the previously mentioned set of points,
-        - If set to 'chebyshev1' or 'chebyshev', the points are chebyshev nodes of the first kind over (t_min, t_max).
-        - If set to 'chebyshev2', the points will be chebyshev nodes of the second kind over [t_min, t_max].
-        - If set to 'latin_hypercube', the points will be generated using Latin Hypercube Sampling from t_min to t_max.
-
-        defaults to 'uniform'.
-    :type method: str, optional
-    :raises ValueError: When provided with an unknown method.
-    """
 
     def __init__(self, size, t_min=0.0, t_max=1.0, method='uniform', noise_std=None):
         r"""Initializer method
@@ -181,52 +116,10 @@ class Generator1D(BaseGenerator):
         return self.getter()
 
     def _internal_vars(self):
-        d = super(Generator1D, self)._internal_vars()
-        d.update(dict(
-            t_min=self.t_min,
-            t_max=self.t_max,
-            method=self.method,
-            noise_std=self.noise_std,
-        ))
-        return d
+        pass
 
 
 class Generator2D(BaseGenerator):
-    r"""An example generator for generating 2-D training points.
-
-        :param grid:
-            The discretization of the 2 dimensions.
-            If we want to generate points on a :math:`m \times n` grid, then `grid` is `(m, n)`.
-            Defaults to `(10, 10)`.
-        :type grid: tuple[int, int], optional
-        :param xy_min:
-            The lower bound of 2 dimensions.
-            If we only care about :math:`x \geq x_0` and :math:`y \geq y_0`, then `xy_min` is `(x_0, y_0)`.
-            Defaults to `(0.0, 0.0)`.
-        :type xy_min: tuple[float, float], optional
-        :param xy_max:
-            The upper boound of 2 dimensions.
-            If we only care about :math:`x \leq x_1` and :math:`y \leq y_1`, then `xy_min` is `(x_1, y_1)`.
-            Defaults to `(1.0, 1.0)`.
-        :type xy_max: tuple[float, float], optional
-        :param method:
-            The distribution of the 2-D points generated.
-
-            - If set to 'equally-spaced', the points will be fixed to the grid specified.
-            - If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points.
-            - If set to 'chebyshev' or 'chebyshev1', the points will be 2-D chebyshev points of the first kind.
-            - If set to 'chebyshev2', the points will be 2-D chebyshev points of the second kind.
-            - If set to 'latin_hypercube', the points will be generated using Latin Hypercube Sampling
-
-            Defaults to 'equally-spaced-noisy'.
-        :type method: str, optional
-        :param xy_noise_std:
-            The standard deviation of the noise on the x and y dimension.
-            If not specified, the default value will be
-            (``grid step size on x dimension`` / 4, ``grid step size on y dimension`` / 4).
-        :type xy_noise_std: tuple[int, int], optional, defaults to None
-        :raises ValueError: When provided with an unknown method.
-    """
 
     def __init__(self, grid=(10, 10), xy_min=(0.0, 0.0), xy_max=(1.0, 1.0), method='equally-spaced-noisy',
                  xy_noise_std=None):
@@ -288,65 +181,16 @@ class Generator2D(BaseGenerator):
             raise ValueError(f'Unknown method: {method}')
 
     def generate(self, xy_min, xy_max, grid, method='chebyshev2-noisy'):
-        if method == 'chebyshev2-noisy':
-            x = _chebyshev_second_noisy(xy_min[0], xy_max[0], grid[0])
-            y = _chebyshev_second_noisy(xy_min[1], xy_max[1], grid[1])
-            grid_x, grid_y = torch.meshgrid(x, y, indexing='ij')
-            return (grid_x.flatten(), grid_y.flatten())
-        elif method == 'latin-hypercube':
-            x = _latin_hypercube(xy_min[0], xy_max[0], grid[0])
-            y = _latin_hypercube(xy_min[1], xy_max[1], grid[1])
-            grid_x, grid_y = torch.meshgrid(x, y, indexing='ij')
-            return (grid_x.flatten(), grid_y.flatten())
+        pass
 
     def get_examples(self):
         return self.getter()
 
     def _internal_vars(self) -> dict:
-        d = super(Generator2D, self)._internal_vars()
-        d.update(dict(
-            grid=self.grid,
-            xy_min=self.xy_min,
-            xy_max=self.xy_max,
-            method=self.method,
-            xy_noise_std=self.xy_noise_std,
-        ))
-        return d
+        pass
 
 
 class Generator3D(BaseGenerator):
-    r"""An example generator for generating 3-D training points. NOT TO BE CONFUSED with `GeneratorSpherical`
-
-        :param grid:
-            The discretization of the 3 dimensions.
-            If we want to generate points on a :math:`m \times n \times k` grid,
-            then `grid` is `(m, n, k)`, defaults to `(10, 10, 10)`.
-        :type grid: tuple[int, int, int], optional
-        :param xyz_min:
-            The lower bound of 3 dimensions.
-            If we only care about :math:`x \geq x_0`, :math:`y \geq y_0`,
-            and :math:`z \geq z_0` then `xyz_min` is :math:`(x_0, y_0, z_0)`.
-            Defaults to `(0.0, 0.0, 0.0)`.
-        :type xyz_min: tuple[float, float, float], optional
-        :param xyz_max:
-            The upper bound of 3 dimensions.
-            If we only care about :math:`x \leq x_1`, :math:`y \leq y_1`, i
-            and :math:`z \leq z_1` then `xyz_max` is :math:`(x_1, y_1, z_1)`.
-            Defaults to `(1.0, 1.0, 1.0)`.
-        :type xyz_max: tuple[float, float, float], optional
-        :param method:
-            The distribution of the 3-D points generated.
-
-            - If set to 'equally-spaced', the points will be fixed to the grid specified.
-            - If set to 'equally-spaced-noisy', a normal noise will be added to the previously mentioned set of points.
-            - If set to 'chebyshev' or 'chebyshev1', the points will be 3-D chebyshev points of the first kind.
-            - If set to 'chebyshev2', the points will be 3-D chebyshev points of the second kind.
-            - If set to 'latin_hypercube', the points will be generated using Latin Hypercube Sampling
-
-            Defaults to 'equally-spaced-noisy'.
-        :type method: str, optional
-        :raises ValueError: When provided with an unknown method.
-    """
 
     def __init__(self, grid=(10, 10, 10), xyz_min=(0.0, 0.0, 0.0), xyz_max=(1.0, 1.0, 1.0),
                  method='equally-spaced-noisy'):
@@ -406,61 +250,10 @@ class Generator3D(BaseGenerator):
         return self.getter()
 
     def _internal_vars(self) -> dict:
-        d = super(Generator3D, self)._internal_vars()
-        d.update(dict(
-            grid=self.grid,
-            xyz_min=self.xyz_min,
-            xyz_max=self.xyz_max,
-            method=self.method,
-        ))
-        return d
+        pass
 
 
 class GeneratorND(BaseGenerator):
-    r"""An example generator for generating N-D training points.
-
-        :param grid:
-            The discretization of the N dimensions.
-            If we want to generate points on a :math:`n_1 \times n_2 \times ... \times n_N` grid,
-            then `grid` is `(n_1, n_2, ... , n_N)`.
-            Defaults to `(10, 10)`.
-        :type grid: tuple[int, int, ... , int], or it can be int if N=1, optional
-        :param r_min:
-            The lower bound of N dimensions.
-            If we only care about :math:`r_1 \geq r_1^{min}`, :math:`r_2 \geq r_2^{min}`, ... ,
-            and :math:`r_N \geq r_N^{min}` then `r_min` is `(r_1_min, r_2_min, ... , r_N_min)`.
-            Defaults to `(0.0, 0.0)`.
-        :type r_min: tuple[float, ... , float], or it can be float if N=1, optional
-        :param r_max:
-            The upper boound of N dimensions.
-            If we only care about :math:`r_1 \leq r_1^{max}`, :math:`r_2 \leq r_2^{max}`, ... ,
-            and :math:`r_N \leq r_N^{max}` then `r_max` is `(r_1_max, r_2_max, ... , r_N_max)`.
-            Defaults to `(1.0, 1.0)`.
-        :type r_max: tuple[float, ... , float], or it can be float if N=1, optional
-        :param methods:
-            The a list of the distributions of each of the 1-D points generated that make the total N-D points.
-
-            - If set to 'uniform',
-              the points will be drew from a uniform distribution Unif(r_min[i], r_max[i]).
-            - If set to 'equally-spaced',
-              the points will be fixed to a set of linearly-spaced points that go from r_min[i] to r_max[i].
-            - If set to 'log-spaced',
-              the points will be fixed to a set of log-spaced points that go from r_min[i] to r_max[i].
-            - If set to 'exp-spaced',
-              the points will be fixed to a set of exp-spaced points that go from r_min[i] to r_max[i].
-            - If set to 'chebyshev' or 'chebyshev1',
-              the points will be chebyshev points of the first kind that go from r_min[i] to r_max[i].
-            - If set to 'chebyshev2',
-              the points will be chebyshev points of the second kind that go from r_min[i] to r_max[i].
-
-            Defaults to ['equally-spaced', 'equally-spaced'].
-        :type methods: list[str, str, ... , str], or it can be str if N=1, optional
-        :param noisy:
-            if set to True a normal noise will be added to all of the N sets of points that make the generator.
-            Defaults to True.
-        :type noisy: bool
-        :raises ValueError: When provided with unknown methods.
-    """
 
     def __init__(self, grid=(10, 10), r_min=(0.0, 0.0), r_max=(1.0, 1.0),
                  methods=['equally-spaced', 'equally-spaced'], noisy=True, r_noise_std=None,
@@ -557,44 +350,11 @@ class GeneratorND(BaseGenerator):
         return self.getter()
 
     def _internal_vars(self) -> dict:
-        d = super(GeneratorND, self)._internal_vars()
-        d.update(dict(
-            grid=self.grid,
-            r_min=self.r_min,
-            r_max=self.r_max,
-            methods=self.methods,
-            noisy=self.noisy,
-            r_noise_std=self.r_noise_std
-        ))
-        return d
+        pass
 
 
 class GeneratorSpherical(BaseGenerator):
-    r"""A generator for generating points in spherical coordinates.
 
-    :param size: Number of points in 3-D sphere.
-    :type size: int
-    :param r_min: Radius of the interior boundary.
-    :type r_min: float, optional
-    :param r_max: Radius of the exterior boundary.
-    :type r_max: float, optional
-    :param method:
-        The distribution of the 3-D points generated.
-
-        - If set to 'equally-radius-noisy', radius of the points will be drawn
-          from a uniform distribution :math:`r \sim U[r_{min}, r_{max}]`.
-        - If set to 'equally-spaced-noisy', squared radius of the points will be drawn
-          from a uniform distribution :math:`r^2 \sim U[r_{min}^2, r_{max}^2]`
-
-        Defaults to 'equally-spaced-noisy'.
-
-    :type method: str, optional
-
-    .. note::
-        Not to be confused with ``Generator3D``.
-    """
-
-    # noinspection PyMissingConstructor
     def __init__(self, size, r_min=0., r_max=1., method='equally-spaced-noisy'):
         super(GeneratorSpherical, self).__init__()
         if r_min < 0 or r_max < r_min:
@@ -624,12 +384,10 @@ class GeneratorSpherical(BaseGenerator):
         b = torch.rand(self.shape)
         c = torch.rand(self.shape)
         denom = a + b + c
-        # `x`, `y`, `z` here are just for computation of `theta` and `phi`
         epsilon = 1e-6
         x = torch.sqrt(a / denom) + epsilon
         y = torch.sqrt(b / denom) + epsilon
         z = torch.sqrt(c / denom) + epsilon
-        # `sign_x`, `sign_y`, `sign_z` are either -1 or +1
         sign_x = torch.randint(0, 2, self.shape, dtype=x.dtype) * 2 - 1
         sign_y = torch.randint(0, 2, self.shape, dtype=y.dtype) * 2 - 1
         sign_z = torch.randint(0, 2, self.shape, dtype=z.dtype) * 2 - 1
@@ -646,25 +404,10 @@ class GeneratorSpherical(BaseGenerator):
         return r, theta, phi
 
     def _internal_vars(self) -> dict:
-        d = super(GeneratorSpherical, self)._internal_vars()
-        d.update(dict(
-            r_min=self.r_min,
-            r_max=self.r_max,
-            method=self.method,
-        ))
-        return d
+        pass
 
 
 class ConcatGenerator(BaseGenerator):
-    r"""An concatenated generator for sampling points,
-    whose ``get_examples()`` method returns the concatenated vector of the samples returned by its sub-generators.
-
-    :param generators: a sequence of sub-generators, must have a ``.size`` field and a ``.get_examples()`` method
-    :type generators: Tuple[BaseGenerator]
-
-    .. note::
-        Not to be confused with ``EnsembleGenerator`` which returns all the samples of its sub-generators.
-    """
 
     def __init__(self, *generators):
         super(ConcatGenerator, self).__init__()
@@ -675,26 +418,14 @@ class ConcatGenerator(BaseGenerator):
         all_examples = [gen.get_examples() for gen in self.generators]
         if isinstance(all_examples[0], torch.Tensor):
             return torch.cat(all_examples)
-        # zip(*sequence) is just `unzip`ping a sequence into sub-sequences, refer to this post for more
-        # https://stackoverflow.com/questions/19339/transpose-unzip-function-inverse-of-zip
         segmented = zip(*all_examples)
         return [torch.cat(seg) for seg in segmented]
 
     def _internal_vars(self) -> dict:
-        d = super(ConcatGenerator, self)._internal_vars()
-        d.update(dict(
-            generators=self.generators,
-        ))
-        return d
+        pass
 
 
 class StaticGenerator(BaseGenerator):
-    """A generator that returns the same samples every time.
-    The static samples are obtained by the sub-generator at instantiation time.
-
-    :param generator: a generator used to generate the static samples
-    :type generator: BaseGenerator
-    """
 
     def __init__(self, generator):
         super(StaticGenerator, self).__init__()
@@ -706,20 +437,10 @@ class StaticGenerator(BaseGenerator):
         return self.examples
 
     def _internal_vars(self) -> dict:
-        d = super(StaticGenerator, self)._internal_vars()
-        d.update(dict(
-            generator=self.generator,
-            examples=self.examples,
-        ))
-        return d
+        pass
 
 
 class PredefinedGenerator(BaseGenerator):
-    """A generator for generating points that are fixed and predefined.
-
-    :param xs: training points that will be returned
-    :type xs: Tuple[`torch.Tensor`]
-    """
 
     def __init__(self, *xs):
         super(PredefinedGenerator, self).__init__()
@@ -742,27 +463,10 @@ class PredefinedGenerator(BaseGenerator):
         return self.xs
 
     def _internal_vars(self) -> dict:
-        d = super(PredefinedGenerator, self)._internal_vars()
-        d.update(dict(
-            xs=self.xs,
-        ))
-        return d
+        pass
 
 
 class TransformGenerator(BaseGenerator):
-    """A generator which applies certain transformations on the sample vectors.
-
-    :param generator:
-        A generator used to generate samples on which transformations will be applied.
-    :type generator: BaseGenerator
-    :param transforms:
-        A list of transformations to be applied on the sample vectors.
-        Identity transformation can be replaced with None
-    :type transforms: list[callable]
-    :param transform:
-        A callable that transforms the output(s) of base generator to another (tuple of) coordinate(s).
-    :type transform: callable
-    """
 
     def __init__(self, generator, transforms=None, transform=None):
         super(TransformGenerator, self).__init__()
@@ -793,26 +497,10 @@ class TransformGenerator(BaseGenerator):
             return tuple(t(x) for t, x in zip(self.trans, xs))
 
     def _internal_vars(self) -> dict:
-        d = super(TransformGenerator, self)._internal_vars()
-        d.update(dict(
-            generator=self.generator,
-            trans=self.trans,
-        ))
-        return d
+        pass
 
 
 class EnsembleGenerator(BaseGenerator):
-    r"""A generator for sampling points whose `get_examples` method returns all the samples of its sub-generators.
-    All sub-generator must return tensors of the same shape.
-    The number of tensors returned by each sub-generator can be different.
-
-    :param generators: a sequence of sub-generators, must have a .size field and a .get_examples() method
-    :type generators: Tuple[BaseGenerator]
-
-    .. note::
-        Not to be confused with ``ConcatGenerator`` which returns
-        the concatenated vector of samples returned by its sub-generators.
-    """
 
     def __init__(self, *generators):
         super(EnsembleGenerator, self).__init__()
@@ -838,30 +526,10 @@ class EnsembleGenerator(BaseGenerator):
             return ret
 
     def _internal_vars(self) -> dict:
-        d = super(EnsembleGenerator, self)._internal_vars()
-        d.update(dict(
-            generators=self.generators,
-        ))
-        return d
+        pass
 
 
 class MeshGenerator(BaseGenerator):
-    r"""A generator for sampling points whose `get_examples` method returns a mesh of the samples of its sub-generators.
-    All sub-generators must return tensors of the same shape, or a tuple of tensors of the same shape.
-    The number of tensors returned by each sub-generator can be different, but the intent behind
-    this class is to create an N dimensional generator from several 1 dimensional generators, so each input generator
-    should represent one of the dimensions of your problem. An exception is made for
-    using a ``MeshGenerator`` as one of the inputs of another ``MeshGenerator``. In that case the original
-    meshed generators are extracted from the input ``MeshGenerator``, and the final mesh is used using those
-    (e.g ``MeshGenerator(MeshGenerator(g1, g2), g3)`` is equivalent to ``MeshGenerator(g1, g2, g3)``, where
-    g1, g2 and g3 are ``Generator1D``).
-    This is done to make the use of the ^ infix consistent with the use of
-    the ``MeshGenerator`` class itself (e.g ``MeshGenerator(g1, g2, g3)`` is equivalent to g1 ^ g2 ^ g3), where
-    g1, g2 and g3 are ``Generator1D``).
-
-    :param generators: a sequence of sub-generators, must have a .size field and a .get_examples() method
-    :type generators: Tuple[BaseGenerator]
-    """
 
     def __init__(self, *generators):
         super(MeshGenerator, self).__init__()
@@ -894,31 +562,10 @@ class MeshGenerator(BaseGenerator):
             return ret_f
 
     def _internal_vars(self) -> dict:
-        d = super(MeshGenerator, self)._internal_vars()
-        d.update(dict(
-            generators=self.generators,
-        ))
-        return d
+        pass
 
 
 class FilterGenerator(BaseGenerator):
-    """A generator which applies some filtering before samples are returned
-
-    :param generator:
-        A generator used to generate samples to be filtered.
-    :type generator: BaseGenerator
-    :param filter_fn:
-        A filter to be applied on the sample vectors; maps a list of tensors to a mask tensor.
-    :type filter_fn: callable
-    :param size:
-        Size to be used for `self.size`.
-        If not given, this attribute is initialized to the size of ``generator``.
-    :type size: int
-    :param update_size:
-        Whether or not to update `.size` after each call of `self.get_examples`.
-        Defaults to True.
-    :type update_size: bool
-    """
 
     def __init__(self, generator, filter_fn, size=None, update_size=True):
         super(FilterGenerator, self).__init__()
@@ -944,24 +591,10 @@ class FilterGenerator(BaseGenerator):
             return xs
 
     def _internal_vars(self) -> dict:
-        d = super(FilterGenerator, self)._internal_vars()
-        d.update(dict(
-            generator=self.generator,
-            filter_fn=self.filter_fn,
-        ))
-        return d
+        pass
 
 
 class ResampleGenerator(BaseGenerator):
-    """A generator whose output is shuffled and resampled every time
-
-    :param generator: A generator used to generate samples to be shuffled and resampled.
-    :type generator: BaseGenerator
-    :param size: Size of the shuffled output. Defaults to the size of ``generator``.
-    :type size: int
-    :param replacement: Whether to sample with replacement or not. Defaults to False.
-    :type replacement: bool
-    """
 
     def __init__(self, generator, size=None, replacement=False):
         super(ResampleGenerator, self).__init__()
@@ -985,25 +618,10 @@ class ResampleGenerator(BaseGenerator):
             return [x[indices] for x in xs]
 
     def _internal_vars(self) -> dict:
-        d = super(ResampleGenerator, self)._internal_vars()
-        d.update(dict(
-            generator=self.generator,
-            replacement=self.replacement,
-        ))
-        return d
+        pass
 
 
 class BatchGenerator(BaseGenerator):
-    """A generator which caches samples and returns a single batch of the samples at a time
-
-    :param generator:
-        A generator used for getting (cached) examples.
-    :type generator: BaseGenerator
-    :param batch_size:
-        Number of batches to be returned.
-        It can be larger than size of ``generator``, but inefficient if so.
-    :type batch_size: int
-    """
 
     def __init__(self, generator, batch_size):
         super(BatchGenerator, self).__init__()
@@ -1019,7 +637,6 @@ class BatchGenerator(BaseGenerator):
             self.cached_xs = list(self.cached_xs)
 
     def get_examples(self):
-        # update cache so that we have enough samples in a batch
         while len(self.cached_xs[0]) < self.size:
             new = self.generator.get_examples()
             if isinstance(new, torch.Tensor):
@@ -1027,7 +644,6 @@ class BatchGenerator(BaseGenerator):
             self.cached_xs = [torch.cat([x, n]) for x, n in zip(self.cached_xs, new)]
 
         batch = [x[:self.size] for x in self.cached_xs]
-        # drop the returned samples
         self.cached_xs = [x[self.size:] for x in self.cached_xs]
 
         if len(batch) == 1:
@@ -1036,11 +652,7 @@ class BatchGenerator(BaseGenerator):
             return batch
 
     def _internal_vars(self) -> dict:
-        d = super(BatchGenerator, self)._internal_vars()
-        d.update(dict(
-            generator=self.generator,
-        ))
-        return d
+        pass
 
 
 class SamplerGenerator(BaseGenerator):
@@ -1057,8 +669,4 @@ class SamplerGenerator(BaseGenerator):
         return samples
 
     def _internal_vars(self) -> dict:
-        d = super(SamplerGenerator, self)._internal_vars()
-        d.update(dict(
-            generator=self.generator,
-        ))
-        return d
+        pass

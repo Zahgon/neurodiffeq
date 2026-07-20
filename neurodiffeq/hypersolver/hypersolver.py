@@ -77,7 +77,7 @@ class Hypersolver:
 
     @property
     def global_epoch(self):
-        return len(self.metrics_history['train_loss'])
+        pass
 
     def get_solution(self):
         ret = self.numerical_solver.solve(self.func, self.u0, self.t0, self.tn, self.n_steps, hypernet=self.net)

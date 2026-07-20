@@ -1,9 +1,3 @@
-# Consider these convention:
-# For user facing part, use 1-d tensor (when representing a collection of 2-d points, use 2 1-d tensors).
-# For non-user facing part, avoid reshaping and use 1-d tensor as much as possible.
-# In function signatures, let u comes before x, let x comes before t
-# Use x and t for distinguish values for x or t; Use xx and tt when corresponding entries of xx and tt are
-# supposed to be paired to represent a point. ([xx, tt] is often the Cartesian product of x and t)
 from abc import ABC, abstractmethod
 import torch
 import numpy as np
@@ -13,7 +7,6 @@ import matplotlib.pyplot as plt
 import matplotlib.tri as tri
 from copy import deepcopy
 
-# return the Cartesian product of x and t.
 def _cartesian_prod_dims(x, t, x_grad=True, t_grad=True):
     xt = torch.cartesian_prod(x, t)
     xx = torch.squeeze(xt[:, 0])
@@ -23,9 +16,6 @@ def _cartesian_prod_dims(x, t, x_grad=True, t_grad=True):
     return xx, tt
 
 class Approximator(ABC):
-    r"""The base class of approximators. An approximator is an approximation of the differential equation's solution.
-    It knows the parameters in the neural network, and how to calculate the loss function and the metrics.
-    """
     @abstractmethod
     def __call__(self):
         raise NotImplementedError  # pragma: no cover
@@ -44,24 +34,6 @@ class Approximator(ABC):
 
 
 class SingleNetworkApproximator1DSpatialTemporal(Approximator):
-    r"""An approximator to approximate the solution of a 1D time-dependent problem.
-    The boundary condition will be enforced by a regularization term in the loss function
-    and the initial condition will be enforced by transforming the output of the
-    neural network.
-
-    :param single_network: A neural network with 2 input nodes (x, t) and 1 output node.
-    :type single_network: `torch.nn.Module`
-    :param pde: The PDE to solve. If the PDE is :math:`F(u, x, t) = 0` then `pde`
-        should be a function that maps :math:`(u, x, t)` to :math:`F(u, x, t)`.
-    :type pde: function
-    :param initial_condition: A first order initial condition.
-    :type initial_condition: `temporal.FirstOrderInitialCondition`
-    :param boundary_conditions: A list of boundary conditions.
-    :type boundary_conditions: list[`temporal.BoundaryCondition`]
-    :param boundary_strictness: The regularization parameter, defaults to 1.
-        a larger regularization parameter enforces the boundary conditions more strictly.
-    :type boundary_strictness: float
-    """
     def __init__(self, single_network, pde, initial_condition, boundary_conditions, boundary_strictness=1.):
         self.single_network = single_network
         self.pde = pde
@@ -105,20 +77,6 @@ class SingleNetworkApproximator1DSpatialTemporal(Approximator):
 
 
 class SingleNetworkApproximator2DSpatial(Approximator):
-    r"""An approximator to approximate the solution of a 2D steady-state problem.
-    The boundary condition will be enforced by a regularization term in the loss function.
-
-    :param single_network: A neural network with 2 input nodes (x, y) and 1 output node.
-    :type single_network: `torch.nn.Module`
-    :param pde: The PDE to solve. If the PDE is :math:`F(u, x, y) = 0` then `pde`
-        should be a function that maps :math:`(u, x, y)` to :math:`F(u, x, y)`.
-    :type pde: function
-    :param boundary_conditions: A list of boundary conditions.
-    :type boundary_conditions: list[`temporal.BoundaryCondition`]
-    :param boundary_strictness: The regularization parameter, defaults to 1.
-        A larger regularization parameter enforces the boundary conditions more strictly.
-    :type boundary_strictness: float
-    """
     def __init__(self, single_network, pde, boundary_conditions, boundary_strictness=1.):
         self.single_network = single_network
         self.pde = pde
@@ -159,27 +117,6 @@ class SingleNetworkApproximator2DSpatial(Approximator):
 
 
 class SingleNetworkApproximator2DSpatialSystem(Approximator):
-    r"""An approximator to approximate the solution of a 2D steady-state differential equation system.
-    The boundary condition will be enforced by a regularization term in the loss function.
-
-    :param single_network:
-        A neural network with 2 input nodes (x, y) and n output node (n is the number of
-        dependent variables in the differential equation system)
-    :type single_network: `torch.nn.Module`
-    :param pde:
-        The PDE system to solve. If the PDE is :math:`F_i(u_1, u_2, ..., u_n, x, y) = 0`
-        where :math:`u_i` is the i-th dependent variable,
-        then `pde` should be a function that maps :math:`(u_1, u_2, ..., u_n, x, y)` to
-        a list where the i-th entry is :math:`F_i(u_1, u_2, ..., u_n, x, y)`.
-    :type pde: callable
-    :param boundary_conditions:
-        A list of boundary conditions
-    :type boundary_conditions: list[`temporal.BoundaryCondition`]
-    :param boundary_strictness:
-        The regularization parameter, defaults to 1.
-        a larger regularization parameter enforces the boundary conditions more strictly.
-    :type boundary_strictness: float
-    """
     def __init__(self, single_network, pde, boundary_conditions, boundary_strictness=1.):
         self.single_network = single_network
         self.pde = pde
@@ -223,28 +160,6 @@ class SingleNetworkApproximator2DSpatialSystem(Approximator):
 
 
 class SingleNetworkApproximator2DSpatialTemporal(Approximator):
-    r"""An approximator to approximate the solution of a 2D time-dependent problem.
-    The boundary condition will be enforced by a regularization term in the loss function
-    and the initial condition will be enforced by transforming the output of the neural network.
-
-    :param single_network:
-        A neural network with 3 input nodes (x, y, t) and 1 output node.
-    :type single_network: `torch.nn.Module`
-    :param pde:
-        The PDE system to solve. If the PDE is :math:`F(u, x, y, t) = 0`
-        then `pde` should be a function that maps :math:`(u, x, y, t)` to :math:`F(u, x, y, t)`.
-    :type pde: callable
-    :param initial_condition:
-        A first order initial condition.
-    :type initial_condition: `temporal.FirstOrderInitialCondition` or `temporal.SecondOrderInitialCondition`
-    :param boundary_conditions:
-        A list of boundary conditions.
-    :type boundary_conditions: list[`temporal.BoundaryCondition`]
-    :param boundary_strictness:
-        The regularization parameter, defaults to 1.
-        a larger regularization parameter enforces the boundary conditions more strictly.
-    :type boundary_strictness: float
-    """
     def __init__(self, single_network, pde, initial_condition, boundary_conditions, boundary_strictness=1.):
         self.single_network = single_network
         self.pde = pde
@@ -261,7 +176,6 @@ class SingleNetworkApproximator2DSpatialTemporal(Approximator):
         if self.u0dot is None:
             uu = torch.exp(-tt) * self.u0(xx, yy) + (1 - torch.exp(-tt)) * self.single_network(xyt)
         else:
-            # not sure about this line
             uu = (1 - (1 - torch.exp(-tt))**2) * self.u0(xx, yy) \
                  + (1 - torch.exp(-tt)) * self.u0dot(xx, yy) \
                  + (1 - torch.exp(-tt))**2 * self.single_network(xyt)
@@ -297,75 +211,17 @@ class SingleNetworkApproximator2DSpatialTemporal(Approximator):
 
 
 class FirstOrderInitialCondition:
-    r"""A first order initial condition. It is used to initialize ``temporal.Approximator``\s.
-
-    :param u0:
-        A function representing the initial condition.
-        If we are solving for :math:`u`, then `u0` is :math:`u\bigg|_{t=0}`.
-        The input of the function depends on where it is used.
-
-        - If it is used as the input for `temporal.SingleNetworkApproximator1DSpatialTemporal`,
-          then `u0` should map :math:`x` to :math:`u(x, t)\bigg|_{t = 0}`.
-        - If it is used as the input for `temporal.SingleNetworkApproximator2DSpatialTemporal`,
-          then `u0` should map :math:`(x, y)` to :math:`u(x, y, t)\bigg|_{t = 0}`.
-    :type u0: callable
-    """
     def __init__(self, u0):
         self.u0 = u0
 
 
 class SecondOrderInitialCondition:
-    r"""A second order initial condition. It is used to initialize ``temporal.Approximator``\s.
-
-    :param u0:
-        A function representing the initial condition.
-        If we are solving for is :math:`u`, then ``u0`` is :math:`u\bigg|_{t=0}`.
-        The input of the function dependes on where it is used.
-
-        - If it is used as the input for ``temporal.SingleNetworkApproximator1DSpatialTemporal``,
-          then ``u0`` should map :math:`x` to :math:`u(x, t)\bigg|_{t = 0}`.
-        - If it is used as the input for ``temporal.SingleNetworkApproximator2DSpatialTemporal``,
-          then ``u0`` should map :math:`(x, y)` to :math:`u(x, y, t)\bigg|_{t = 0}`.
-    :type u0: callable
-    :param u0dot:
-        A function representing the initial derivative w.r.t. time.
-        If we are solving for is :math:`u`, then ``u0dot`` is :math:`\dfrac{\partial u}{\partial t}\bigg|_{t=0}`.
-        The input of the function depends on where it is used.
-
-        - If it is used as the input for ``temporal.SingleNetworkApproximator1DSpatialTemporal``,
-          then ``u0`` should map :math:`x` to :math:`\dfrac{\partial u}{\partial t}\bigg|_{t = 0}`.
-        - If it is used as the input for `temporal.SingleNetworkApproximator2DSpatialTemporal`,
-          then ``u0`` should map :math:`(x, y)` to :math:`\dfrac{\partial u}{\partial t}\bigg|_{t = 0}`.
-    :type u0dot: callable
-    """
     def __init__(self, u0, u0dot):
         self.u0 = u0
         self.u0dot = u0dot
 
 
 class BoundaryCondition:
-    r"""A boundary condition. It is used to initialize ``temporal.Approximator``\s.
-
-    :param form: The form of the boundary condition.
-
-        - For a 1D time-dependent problem, if the boundary condition demands that :math:`B(u, x) = 0`,
-          then ``form`` should be a function that maps :math:`u, x, t` to :math:`B(u, x)`.
-        - For a 2D steady-state problem, if the boundary condition demands that :math:`B(u, x, y) = 0`,
-          then ``form`` should be a function that maps :math:`u, x, y` to :math:`B(u, x, y)`.
-        - For a 2D steady-state system, if the boundary condition demands that :math:`B(u_i, x, y) = 0`,
-          then ``form`` should be a function that maps :math:`u_1, u_2, ..., u_n, x, y` to :math:`B(u_i, x, y)`.
-        - For a 2D time-dependent problem, if the boundary condition demands that :math:`B(u, x, y) = 0`,
-          then ``form`` should be a function that maps :math:`u, x, y, t` to :math:`B(u_i, x, y)`.
-
-        Basically the function signature of ``form`` should be
-        the same as the ``pde`` function of the given ``temporal.Approximator``.
-    :type form: callable
-    :param points_generator:
-        A generator that generates points on the boundary.
-        It can be a `temporal.generator_1dspatial`, `temporal.generator_2dspatial_segment`,
-        or a generator written by user.
-    :type points_genrator: generator
-    """
     def __init__(self, form, points_generator):
         self.form = form
         self.points_generator = points_generator
@@ -505,8 +361,6 @@ def generator_temporal(size, t_min, t_max, random=True):
 
 
 class MonitorMinimal:
-    r"""A monitor that shows the loss function and custom metrics.
-    """
     def __init__(self, check_every):
         self.using_non_gui_backend = matplotlib.get_backend() == 'agg'
         self.check_every = check_every
@@ -535,7 +389,6 @@ class MonitorMinimal:
         self.ax2.set_ylabel('metrics')
         self.ax2.set_xlabel('epochs')
         self.ax2.set_yscale('log')
-        # if there's not custom metrics, then there won't be any labels in this axis
         if len(history) > 2:
             self.ax2.legend()
 
@@ -545,8 +398,6 @@ class MonitorMinimal:
 
 
 class Monitor1DSpatialTemporal:
-    r"""A monitor for 1D time-dependent problems.
-    """
     def __init__(self, check_on_x, check_on_t, check_every):
         self.using_non_gui_backend = matplotlib.get_backend() == 'agg'
 
@@ -593,7 +444,6 @@ class Monitor1DSpatialTemporal:
         self.ax3.set_ylabel('metrics')
         self.ax3.set_xlabel('epochs')
         self.ax3.set_yscale('log')
-        # if there's not custom metrics, then there won't be any labels in this axis
         if len(history) > 2:
             self.ax3.legend()
 
@@ -603,8 +453,6 @@ class Monitor1DSpatialTemporal:
 
 
 class Monitor2DSpatialTemporal:
-    r"""A monitor for 2D time-dependent problems.
-    """
     def __init__(self, check_on_x, check_on_y, check_on_t, check_every):
         self.using_non_gui_backend = matplotlib.get_backend() == 'agg'
 
@@ -635,9 +483,6 @@ class Monitor2DSpatialTemporal:
 
     def check(self, approximator, history):
         if not self.fig:
-            # initialize the figure and axes here so that the Monitor knows the number of dependent variables and
-            # size of the figure, number of the subplots, etc.
-            # one for each time slice, plus one for training and validation loss, plus one for metrics
             n_axs = len(self.t_array)+2
             n_row, n_col = (n_axs+1) // 2, 2
             self.fig = plt.figure(figsize=(20, 8*n_row))
@@ -675,7 +520,6 @@ class Monitor2DSpatialTemporal:
         self.axs[-1].set_xlabel('epochs')
         self.axs[-1].set_yscale('log')
 
-        # if there's not custom metrics, then there won't be any labels in this axis
         if len(history) > 2:
             self.axs[-1].legend()
 
@@ -685,8 +529,6 @@ class Monitor2DSpatialTemporal:
 
 
 class Monitor2DSpatial:
-    r"""A Monitor for 2D steady-state problems
-    """
     def __init__(self, check_on_x, check_on_y, check_every):
         self.using_non_gui_backend = matplotlib.get_backend() == 'agg'
 
@@ -744,7 +586,6 @@ class Monitor2DSpatial:
         self.ax3.set_xlabel('epochs')
         self.ax3.set_yscale('log')
 
-        # if there's not custom metrics, then there won't be any labels in this axis
         if len(history) > 2:
             self.ax3.legend()
 
@@ -898,7 +739,6 @@ def _solve_2dspatial(
     )
 
 
-# _solve_1dspatial_temporal, _solve_2dspatial_temporal, _solve_2dspatial all call this function in the end
 def _solve_spatial_temporal(
     train_generator_spatial, train_generator_temporal, valid_generator_spatial, valid_generator_temporal,
     approximator, optimizer, batch_size, max_epochs, shuffle, metrics, monitor,
@@ -930,7 +770,6 @@ def _solve_spatial_temporal(
     return approximator, history
 
 
-# training phase for 1D time-dependent problems
 def _train_1dspatial_temporal(train_generator_spatial, train_generator_temporal,
                               approximator, optimizer, metrics, shuffle, batch_size):
     x = next(train_generator_spatial)
@@ -965,7 +804,6 @@ def _train_1dspatial_temporal(train_generator_spatial, train_generator_temporal,
     return epoch_loss, epoch_metrics
 
 
-# training phase for 2D steady-state problems
 def _train_2dspatial(train_generator_spatial, train_generator_temporal,
                      approximator, optimizer, metrics, shuffle, batch_size):
     xx, yy = next(train_generator_spatial)
@@ -1000,7 +838,6 @@ def _train_2dspatial(train_generator_spatial, train_generator_temporal,
     return epoch_loss, epoch_metrics
 
 
-# validation phase for 2D steady-state problems
 def _valid_2dspatial(valid_generator_spatial, valid_generator_temporal, approximator, metrics):
     xx, yy = next(valid_generator_spatial)
     xx.requires_grad = True
@@ -1015,7 +852,6 @@ def _valid_2dspatial(valid_generator_spatial, valid_generator_temporal, approxim
     return epoch_loss, epoch_metrics
 
 
-# training phase for 2D time-dependent problems
 def _train_2dspatial_temporal(train_generator_spatial, train_generator_temporal,
                               approximator, optimizer, metrics, shuffle, batch_size):
     x, y = next(train_generator_spatial)
@@ -1043,7 +879,6 @@ def _train_2dspatial_temporal(train_generator_spatial, train_generator_temporal,
         batch_start += batch_size
         batch_end += batch_size
 
-    # TODO: this can give us the real loss after an epoch, but can be very memory intensive
     epoch_loss = approximator.calculate_loss(xx, yy, tt, x, y, t).item()
 
     epoch_metrics = approximator.calculate_metrics(xx, yy, tt, x, y, t, metrics)
@@ -1053,7 +888,6 @@ def _train_2dspatial_temporal(train_generator_spatial, train_generator_temporal,
     return epoch_loss, epoch_metrics
 
 
-# validation phase for 1D time-dependent problems
 def _valid_1dspatial_temporal(valid_generator_spatial, valid_generator_temporal, approximator, metrics):
     x = next(valid_generator_spatial)
     t = next(valid_generator_temporal)
@@ -1068,7 +902,6 @@ def _valid_1dspatial_temporal(valid_generator_spatial, valid_generator_temporal,
     return epoch_loss, epoch_metrics
 
 
-# validation phase for 2D time-dependent problems
 def _valid_2dspatial_temporal(valid_generator_spatial, valid_generator_temporal, approximator, metrics):
     x, y = next(valid_generator_spatial)
     t = next(valid_generator_temporal)

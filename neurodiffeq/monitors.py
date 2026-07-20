@@ -20,21 +20,10 @@ from .operators import grad
 
 
 def _updatable_contour_plot_available():
-    from packaging.version import parse as vparse
-    from matplotlib import __version__
-    return vparse(__version__) >= vparse('3.3.0')
+    pass
 
 
 class BaseMonitor(ABC):
-    r"""A tool for checking the status of the neural network during training.
-
-    A monitor keeps track of a matplotlib.figure.Figure instance and updates the plot
-    whenever its ``check()`` method is called (usually by a ``neurodiffeq.solvers.BaseSolver`` instance).
-
-    .. note::
-        Currently, the ``check()`` method can only run synchronously.
-        It blocks the training / validation process, so don't call the ``check()`` method too often.
-    """
 
     def __init__(self, check_every=None):
         self.check_every = check_every or 100
@@ -67,7 +56,6 @@ class BaseMonitor(ABC):
         :return: The callback that updates the monitor plots.
         :rtype: neurodiffeq.callbacks.BaseCallback
         """
-        # to avoid circular import
         from .callbacks import MonitorCallback, PeriodLocal, OnLastLocal
         action_cb = MonitorCallback(self, fig_dir=fig_dir, format=format, logger=logger)
         condition_cb = OnLastLocal(logger=logger)
@@ -77,51 +65,6 @@ class BaseMonitor(ABC):
 
 
 class MonitorSpherical(BaseMonitor):
-    r"""A monitor for checking the status of the neural network during training.
-
-    :param r_min:
-        The lower bound of radius,
-        i.e., radius of interior boundary.
-    :type r_min: float
-    :param r_max:
-        The upper bound of radius,
-        i.e., radius of exterior boundary.
-    :type r_max: float
-    :param check_every:
-        The frequency of checking the neural network represented by the number of epochs between two checks.
-        Defaults to 100.
-    :type check_every: int, optional
-    :param var_names:
-        Names of dependent variables.
-        If provided, shall be used for plot titles.
-        Defaults to None.
-    :type var_names: list[str]
-    :param shape:
-        Shape of mesh for visualizing the solution.
-        Defaults to (10, 10, 10).
-    :type shape: tuple[int]
-    :param r_scale:
-        'linear' or 'log'.
-        Controls the grid point in the :math:`r` direction.
-        Defaults to 'linear'.
-    :type r_scale: str
-    :param theta_min:
-        The lower bound of polar angle.
-        Defaults to :math:`0`.
-    :type theta_min: float
-    :param theta_max:
-        The upper bound of polar angle.
-        Defaults to :math:`\pi`.
-    :type theta_max: float
-    :param phi_min:
-        The lower bound of azimuthal angle.
-        Defaults to :math:`0`.
-    :type phi_min: float
-    :param phi_max:
-        The upper bound of azimuthal angle.
-        Defaults to :math:`2\pi`.
-    :type phi_max: float
-    """
 
     def __init__(self, r_min, r_max, check_every=None, var_names=None, shape=(10, 10, 10), r_scale='linear',
                  theta_min=0.0, theta_max=math.pi, phi_min=0.0, phi_max=math.pi * 2):
@@ -139,7 +82,6 @@ class MonitorSpherical(BaseMonitor):
         self.cbs = []  # color bars
         self.names = var_names
         self.shape = shape
-        # input for neural network
 
         if r_scale == 'log':
             r_min, r_max = np.log(r_min), np.log(r_max)
@@ -167,25 +109,11 @@ class MonitorSpherical(BaseMonitor):
 
     @staticmethod
     def _longitude_formatter(value, count):
-        value = int(round(value / math.pi * 180)) - 180
-        if value == 0 or abs(value) == 180:
-            marker = ''
-        elif value > 0:
-            marker = 'E'
-        else:
-            marker = 'W'
-        return f'{abs(value)}°{marker}'
+        pass
 
     @staticmethod
     def _latitude_formatter(value, count):
-        value = int(round(value / math.pi * 180)) - 90
-        if value == 0:
-            marker = ''
-        elif value > 0:
-            marker = 'N'
-        else:
-            marker = 'S'
-        return f'{abs(value)}°{marker}'
+        pass
 
     def _compute_us(self, nets, conditions):
         r, theta, phi = self.r_tensor, self.theta_tensor, self.phi_tensor
@@ -234,8 +162,6 @@ class MonitorSpherical(BaseMonitor):
         if ('train_loss' not in history) or ('valid_loss' not in history):
             raise ValueError("Either 'train_loss' or 'valid_loss' not present in `history`.")
 
-        # initialize the figure and axes here so that the Monitor knows the number of dependent variables and
-        # shape of the figure, number of the subplots, etc.
         n_vars = len(nets) if self.n_vars is None else self.n_vars
         n_row = (n_vars + 2) if len(history) > 2 else (n_vars + 1)
         n_col = 3
@@ -253,7 +179,6 @@ class MonitorSpherical(BaseMonitor):
             self.fig = plt.figure(figsize=(24, 6 * n_row))
             self.fig.tight_layout()
             self.axs = self.fig.subplots(nrows=n_row, ncols=n_col, gridspec_kw={'width_ratios': [1, 1, 2]})
-            # remove 1-1-2 empty axes, which will be replaced by ax_loss and ax_metrics
             for row in self.axs[n_vars:]:
                 for ax in row:
                     ax.remove()
@@ -272,7 +197,6 @@ class MonitorSpherical(BaseMonitor):
             except (TypeError, IndexError):
                 var_name = f"u[{i}]"
 
-            # prepare data for plotting
             u_across_r = u.reshape(*self.shape).mean(0)
             df = pd.DataFrame({
                 '$r$': self.r_label,
@@ -281,15 +205,12 @@ class MonitorSpherical(BaseMonitor):
                 'u': u.reshape(-1),
             })
 
-            # u-r curve grouped by phi
             ax = self.axs[i][0]
             self._update_r_plot_grouped_by_phi(var_name, ax, df)
 
-            # u-r curve grouped by theta
             ax = self.axs[i][1]
             self._update_r_plot_grouped_by_theta(var_name, ax, df)
 
-            # u-theta-phi heatmap/contourf depending on matplotlib version
             ax = self.axs[i][2]
             self._update_contourf(var_name, ax, u_across_r, colorbar_index=i)
 
@@ -312,9 +233,6 @@ class MonitorSpherical(BaseMonitor):
 
         self.customization()
         self.fig.canvas.draw()
-        # for command-line, interactive plots, not pausing can lead to graphs not being displayed at all
-        # see https://stackoverflow.com/questions/
-        # 19105388/python-2-7-mac-osx-interactive-plotting-with-matplotlib-not-working
         if not self.using_non_gui_backend:
             plt.pause(0.05)
 
@@ -337,7 +255,6 @@ class MonitorSpherical(BaseMonitor):
         ax.set_title(f'{var_name}($r$) grouped by $\\theta$')
         ax.set_ylabel(var_name)
 
-    # _update_contourf cannot be defined as a static method since it depends on self.contourf_plot_available
     def _update_contourf(self, var_name, ax, u, colorbar_index):
         ax.clear()
         ax.set_xlabel('$\\phi$')
@@ -345,8 +262,6 @@ class MonitorSpherical(BaseMonitor):
 
         ax.set_title(f'{var_name} averaged across $r$')
         if self.contour_plot_available:
-            # matplotlib has problems plotting repeatedly `contourf` until version 3.3
-            # see https://github.com/matplotlib/matplotlib/issues/15986
             theta = self.theta_label.reshape(*self.shape)[0, :, 0]
             phi = self.phi_label.reshape(*self.shape)[0, 0, :]
             cax = ax.contourf(phi, theta, u, cmap='magma', levels=max(self.shape[-2:]))
@@ -359,7 +274,6 @@ class MonitorSpherical(BaseMonitor):
             ax.grid(which='major', linestyle='--', linewidth=0.5)
             ax.grid(which='minor', linestyle=':', linewidth=0.5)
         else:
-            # use matshow() to plot a heatmap instead
             cax = ax.matshow(u, cmap='magma', interpolation='nearest')
 
         if self.cbs[colorbar_index]:
@@ -374,95 +288,23 @@ class MonitorSpherical(BaseMonitor):
         ax.set_ylabel(y_label)
         for metric in history:
             ax.plot(history[metric], label=metric)
-        # By default, metrics are plotted using log-scale
-        # If there are negative values in metrics, override `self.customization()` to change to linear-scale
         ax.set_yscale('log')
         ax.legend()
 
     def new(self):
-        self.fig = None
-        self.axs = []
-        self.cbs = []
-        self.ax_metrics = None
-        self.ax_loss = None
-        return self
+        pass
 
     def set_variable_count(self, n):
-        r"""Manually set the number of scalar fields to be visualized;
-        If not set, defaults to length of ``nets`` passed to ``self.check()`` every time ``self.check()`` is called.
-
-        :param n: number of scalar fields to overwrite default
-        :type n: int
-        :return: self
-        """
-        self.n_vars = n
-        return self
+        pass
 
     def unset_variable_count(self):
-        r"""Manually unset the number of scalar fields to be visualized;
-        Once unset, the number defaults to length of ``nets``
-        passed to ``self.check()`` every time ``self.check()`` is called.
-
-        :return: self
-        """
-        self.n_vars = None
-        return self
+        pass
 
 
 class MonitorSphericalHarmonics(MonitorSpherical):
-    r"""A monitor for checking the status of the neural network during training.
-
-    :param r_min:
-        The lower bound of radius, i.e., radius of interior boundary.
-    :type r_min: float
-    :param r_max:
-        The upper bound of radius, i.e., radius of exterior boundary.
-    :type r_max: float
-    :param check_every:
-        The frequency of checking the neural network represented by the number of epochs between two checks.
-        Defaults to 100.
-    :type check_every: int, optional
-    :param var_names:
-        The names of dependent variables; if provided, shall be used for plot titles.
-        Defaults to None
-    :type var_names: list[str]
-    :param shape:
-        Shape of mesh for visualizing the solution.
-        Defaults to (10, 10, 10).
-    :type shape: tuple[int]
-    :param r_scale:
-        'linear' or 'log'.
-        Controls the grid point in the :math:`r` direction.
-        Defaults to 'linear'.
-    :type r_scale: str
-    :param harmonics_fn:
-        A mapping from :math:`\theta` and :math:`\phi` to basis functions, e.g., spherical harmonics.
-    :type harmonics_fn: callable
-    :param theta_min:
-        The lower bound of polar angle.
-        Defaults to :math:`0`
-    :type theta_min: float
-    :param theta_max:
-        The upper bound of polar angle.
-        Defaults to :math:`\pi`.
-    :type theta_max: float
-    :param phi_min:
-        The lower bound of azimuthal angle.
-        Defaults to :math:`0`.
-    :type phi_min: float
-    :param phi_max:
-        The upper bound of azimuthal angle.
-        Defaults to :math:`2\pi`.
-    :type phi_max: float
-    :param max_degree:
-        **DEPRECATED and SUPERSEDED** by ``harmonics_fn``.
-        Highest used for the harmonic basis.
-    :type max_degree: int
-    """
 
     def __init__(self, r_min, r_max, check_every=None, var_names=None, shape=(10, 10, 10), r_scale='linear',
                  harmonics_fn=None, theta_min=0.0, theta_max=math.pi, phi_min=0.0, phi_max=math.pi * 2,
-                 # DEPRECATED
                  max_degree=None):
         super(MonitorSphericalHarmonics, self).__init__(
             r_min,
@@ -498,28 +340,10 @@ class MonitorSphericalHarmonics(MonitorSpherical):
 
     @property
     def max_degree(self):
-        try:
-            ret = self.harmonics_fn.max_degree
-        except AttributeError as e:
-            warnings.warn(f"Error caught when accessing {self.__class__.__name__}, returning None:\n{e}")
-            ret = None
-        return ret
+        pass
 
 
 class Monitor1D(BaseMonitor):
-    """A monitor for checking the status of the neural network during training.
-
-    :param t_min:
-        The lower bound of time domain that we want to monitor.
-    :type t_min: float
-    :param t_max:
-        The upper bound of time domain that we want to monitor.
-    :type t_max: float
-    :param check_every:
-        The frequency of checking the neural network represented by the number of epochs between two checks.
-        Defaults to 100.
-    :type check_every: int, optional
-    """
 
     def __init__(self, t_min, t_max, check_every=None):
         """Initializer method
@@ -529,9 +353,7 @@ class Monitor1D(BaseMonitor):
         self.ax1 = self.fig.add_subplot(131)
         self.ax2 = self.fig.add_subplot(132)
         self.ax3 = self.fig.add_subplot(133)
-        # input for plotting
         self.ts_plt = np.linspace(t_min, t_max, 100)
-        # input for neural network
         self.ts_ann = torch.linspace(t_min, t_max, 100, requires_grad=True).reshape((-1, 1))
 
     def check(self, nets, conditions, history):
@@ -581,7 +403,6 @@ class Monitor1D(BaseMonitor):
         self.ax3.set_ylabel('metrics')
         self.ax3.set_xlabel('epochs')
         self.ax3.set_yscale('log')
-        # if there's not custom metrics, then there won't be any labels in this axis
         if len(history) > 2:
             self.ax3.legend()
 
@@ -591,53 +412,6 @@ class Monitor1D(BaseMonitor):
 
 
 class Monitor2D(BaseMonitor):
-    r"""A monitor for checking the status of the neural network during training.
-    The number and layout of subplots (matplotlib axes) will be finalized after the first ``.check()`` call.
-
-    :param xy_min:
-        The lower bound of 2 dimensions.
-        If we only care about :math:`x \geq x_0` and :math:`y \geq y_0`, then `xy_min` is `(x_0, y_0)`.
-    :type xy_min: tuple[float, float], optional
-    :param xy_max:
-        The upper bound of 2 dimensions.
-        If we only care about :math:`x \leq x_1` and :math:`y \leq y_1`, then `xy_min` is `(x_1, y_1)`.
-    :type xy_max: tuple[float, float], optional
-    :param check_every:
-        The frequency of checking the neural network represented by the number of epochs between two checks.
-        Defaults to 100.
-    :type check_every: int, optional
-    :param valid_generator:
-        The generator used to sample points from the domain when visualizing the solution.
-        The generator is only called once (during instantiating the generator), and its outputs are stored.
-        Defaults to a 32x32 ``Generator2D`` with method 'equally-spaced'.
-    :type valid_generator: neurodiffeq.generators.BaseGenerator
-    :param solution_style:
-
-        - If set to 'heatmap', solution visualization will be a contour heat map of
-          :math:`u` w.r.t. :math:`x` and :math:`y`. Useful when visualizing a 2-D spatial solution.
-        - If set to 'curves', solution visualization will be :math:`u`-:math:`x` curves instead of a 2d heat map.
-          Each curve corresponds to a :math:`t` value. Useful when visualizing 1D spatio-temporal solution.
-          The first coordinate is interpreted as :math:`x` and the second as :math:`t`.
-
-        Defaults to 'heatmap'.
-    :type solution_style: str
-    :param equal_aspect:
-        Whether to set aspect ratio to 1:1 for heatmap. Defaults to True.
-        Ignored if `solutions_style` is 'curves'.
-    :type equal_aspect: bool
-    :param ax_width:
-        Width for each solution visualization. Note that this is different from width for metrics history,
-        which is equal to ``ax_width`` :math:`\times` ``n_cols``.
-    :type ax_width: float
-    :param ax_height: Height for each solution visualization and metrics history plot.
-    :type ax_height: float
-    :param n_col:
-        Number of solution visualizations to plot in each row.
-        Note there is always only 1 plot for metrics history plot per row.
-    :type n_col: int
-    :param levels: Number of levels to plot with contourf (heatmap). Defaults to 20.
-    :type levels: int
-    """
 
     def __init__(self, xy_min, xy_max, check_every=None, valid_generator=None, solution_style='heatmap',
                  equal_aspect=True, ax_width=5.0, ax_height=4.0, n_col=2, levels=20):
@@ -658,9 +432,7 @@ class Monitor2D(BaseMonitor):
         self.n_col = n_col
         self.equal_aspect = equal_aspect
         self.axs = []  # subplots
-        # self.caxs = []  # colorbars
         self.cbs = []  # color bars
-        # input for neural network
         if valid_generator is None:
             valid_generator = _Generator2D([32, 32], xy_min, xy_max, method='equally-spaced')
         xs_ann, ys_ann = valid_generator.get_examples()
@@ -669,7 +441,6 @@ class Monitor2D(BaseMonitor):
         self.ys_plot = self.ys_ann.detach().cpu().numpy().flatten()
         self.levels = levels
 
-    # draw a contour plot of the surface (xs, ys) -> zs
     def _create_contour(self, ax, xs, ys, zs, condition):
         triang = tri.Triangulation(xs, ys)
         xs = xs[triang.triangles].mean(axis=1)
@@ -707,21 +478,16 @@ class Monitor2D(BaseMonitor):
         """
 
         if not self.fig:
-            # initialize the figure and axes here so that the Monitor knows the number of dependent variables and
-            # size of the figure, number of the subplots, etc.
 
-            # one for each dependent variable, plus one for training and validation loss, plus one for metrics
             n_func = len(conditions)
             n_col = self.n_col
             n_row_sols = math.ceil(n_func / n_col)
             n_row = n_row_sols + 2
             self.fig = plt.figure(figsize=(self.ax_width * n_col, self.ax_height * n_row))
             self.fig.tight_layout()
-            # axes and color bars for solutions (aka dependent variables)
             for i in range(n_func):
                 self.axs.append(self.fig.add_subplot(n_row, n_col, i + 1))
                 self.cbs.append(None)
-            # axes for history plot of loss and other metrics, these plots should take the whole row
             self.axs.append(self.fig.add_subplot(n_row, 1, n_row_sols + 1))
             self.axs.append(self.fig.add_subplot(n_row, 1, n_row_sols + 2))
 
@@ -762,7 +528,6 @@ class Monitor2D(BaseMonitor):
         self.axs[-1].set_ylabel('metrics')
         self.axs[-1].set_xlabel('epochs')
         self.axs[-1].set_yscale('log')
-        # if there's not custom metrics, then there won't be any labels in this axis
         if len(history) > 2:
             self.axs[-1].legend()
 
@@ -772,14 +537,6 @@ class Monitor2D(BaseMonitor):
 
 
 class MetricsMonitor(BaseMonitor):
-    r"""A monitor for visualizing the loss and other metrics.
-    This monitor does not visualize the solution.
-
-    :param check_every:
-        The frequency of checking the neural network represented by the number of epochs between two checks.
-        Defaults to 100.
-    :type check_every: int, optional
-    """
 
     def __init__(self, check_every=None):
         super().__init__(check_every=check_every)
@@ -805,7 +562,6 @@ class MetricsMonitor(BaseMonitor):
         self.ax2.set_ylabel('metrics')
         self.ax2.set_xlabel('epochs')
         self.ax2.set_yscale('log')
-        # if there're no custom metrics, then there won't be any labels in this axis
         if len(history) > 2:
             self.ax2.legend()
 
@@ -840,7 +596,6 @@ class StreamPlotMonitor2D(BaseMonitor):
 
         if mask_fn:
             self.mask = mask_fn(self.xs_plot, self.ys_plot)
-            # TODO use antialiasing
             _pcolor_x, _pcolor_y = np.meshgrid(
                 np.linspace(xy_min[0], xy_max[0], nx * 8),
                 np.linspace(xy_min[1], xy_max[1], ny * 8),
@@ -859,16 +614,12 @@ class StreamPlotMonitor2D(BaseMonitor):
     def _plot_streamlines(self, ax, us, vs, norms, cb_idx, is_grad=False):
         ax.clear()
         if self.mask is not None:
-            # FIXME if mask covers all points in the meshgrid, the following ValueError will be raised
-            # "Need at least one array to concatenate"
             us[~self.mask] = np.nan
             vs[~self.mask] = np.nan
             ax.pcolor(*self._pcolor_args, shading='auto', cmap='Purples')
         kwargs = dict(color=norms.transpose())
         kwargs.update(self.stream_kwargs)
         stream = ax.streamplot(self.xs_plot[:, 0], self.ys_plot[0, :], us.transpose(), vs.transpose(), **kwargs)
-        # FIXME new versions of matplotlib will raise AttributeError when removing old colorbar
-        # cf. https://github.com/matplotlib/matplotlib/issues/22257#issuecomment-1015391596
         if self.cbs[cb_idx] is not None:
             try:
                 self.cbs[cb_idx].remove()

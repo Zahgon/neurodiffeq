@@ -24,9 +24,6 @@ PredefinedExampleGenerator2D = warn_deprecate_class(PredefinedGenerator)
 Solution = warn_deprecate_class(Solution2D)
 
 
-# Calculate the output of a neural network with 2 input.
-# In the case where the neural network has multiple output unit,
-# `ith_unit` specifies which unit do we want.
 def _network_output_2input(net, xs, ys, ith_unit):
     xys = torch.cat((xs, ys), 1)
     nn_output = net(xys)
@@ -36,20 +33,8 @@ def _network_output_2input(net, xs, ys, ith_unit):
         return nn_output
 
 
-# Adjust the output of the neural network with trial solutions
-# coded into `conditions`.
 def _trial_solution_2input(single_net, nets, xs, ys, conditions):
-    if single_net:  # using a single net
-        us = [
-            con.enforce(single_net, xs, ys)
-            for con in conditions
-        ]
-    else:  # using multiple nets
-        us = [
-            con.enforce(net, xs, ys)
-            for con, net in zip(conditions, nets)
-        ]
-    return us
+    pass
 
 
 def solve2D(
@@ -289,7 +274,6 @@ def solve2D_system(
     if single_net and nets:
         raise ValueError('Only one of net and nets should be specified')
 
-    # For backward compatibility defaults to use a single neural network
     if (not single_net) and (not nets):
         single_net = FCNN(
             n_input_units=2,
@@ -299,7 +283,6 @@ def solve2D_system(
         )
 
     if single_net:
-        # mark the Conditions so that we know which condition correspond to which output unit
         for ith, con in enumerate(conditions):
             con.set_impose_on(ith)
         nets = [single_net] * len(conditions)
@@ -355,8 +338,7 @@ def make_animation(solution, xs, ts):
     sol_net = solution(xx, tt, to_numpy=True)
 
     def u_gen():
-        for net in sol_net:
-            yield net
+        pass
 
     fig, ax = plt.subplots()
     line, = ax.plot([], [], lw=2)
@@ -367,28 +349,20 @@ def make_animation(solution, xs, ts):
     ax.set_xlim(xs.min(), xs.max())
 
     def run(data):
-        line.set_data(xs, data)
-        return line,
+        pass
 
     return animation.FuncAnimation(
         fig, run, u_gen, blit=True, interval=50, repeat=False
     )
 
 
-############################# arbitraty boundary conditions #############################
 
-# CONSTANTS
 ROUND_TO_ZERO = 1e-7  # in the code below, values lower than ROUND_TO_ZERO are considered zero
 K = 5.0
 ALPHA = 5.0
 
 
 class Point:
-    r"""A 2D point.
-
-    :param loc: The location of the point in the form of :math:`(x, y)`.
-    :type loc: tuple[float, float]
-    """
 
     def __repr__(self):
         return f'Point({self.loc})'
@@ -399,13 +373,6 @@ class Point:
 
 
 class DirichletControlPoint(Point):
-    r"""A 2D point on the Dirichlet boundary.
-
-    :param loc: The location of the point in the form of :math:`(x, y)`.
-    :type loc: tuple[float, float]
-    :param val: The expected value of :math:`u` at this location.(:math:`u(x, y)` is the function we are solving for)
-    :type val: float
-    """
 
     def __repr__(self):
         return f'DirichletControlPoint({self.loc}, val={self.val})'
@@ -415,18 +382,7 @@ class DirichletControlPoint(Point):
         self.val = float(val)
 
 
-# TODO: Irregular Neumann boundary conditions are not working yet.
 class NeumannControlPoint(Point):
-    r"""A 2D point on the Neumann boundary.
-
-    :param loc:
-        The location of the point in the form of :math:`(x, y)`.
-    :type loc: tuple[float, float]
-    :param val:
-        The expected normal derivative of :math:`u` at this location.
-        (:math:`u(x, y)` is the function we are solving for)
-    :type val: float
-    """
 
     def __repr__(self):
         return f'NeumannControlPoint({self.loc}, val={self.val}, ' + \
@@ -440,72 +396,46 @@ class NeumannControlPoint(Point):
 
 
 class CustomBoundaryCondition(IrregularBoundaryCondition):
-    r"""A boundary condition with irregular shape.
-
-    :param center_point:
-        A point that roughly locate at the center of the domain.
-        It will be used to sort the control points 'clockwise'.
-    :type center_point: `pde.Point`
-    :param dirichlet_control_points: a list of points on the Dirichlet boundary
-    :type dirichlet_control_points: list[pde.DirichletControlPoint]
-    """
 
     def __init__(self, center_point, dirichlet_control_points, neumann_control_points=None):
         super().__init__()
 
-        # for Dirichlet control points, drop deplicates and sort 'clockwise'
         self.dirichlet_control_points = self._clean_control_points(dirichlet_control_points, center_point)
-        # fit Neumann boundary condition (A_D(x) in MacFall's paper)
         self.a_d_interp = InterpolatorCreator.fit_surface(self.dirichlet_control_points)
-        # fit Dirichlet length factor (L_D(x) in MacFall's paper)
         self.l_d_interp = InterpolatorCreator.fit_length_factor(self.dirichlet_control_points)
 
         if neumann_control_points is None:
             neumann_control_points = []
         if len(neumann_control_points) > 0:
-            # for Naumann control points, drop deplicates and sort 'clockwise'
             self.neumann_control_points = self._clean_control_points(neumann_control_points, center_point)
-            # fit Neumann boundary condition (g(x) in MacFall's paper)
             self.g_interp = InterpolatorCreator.fit_surface(self.neumann_control_points)
-            # fit Naumann length factor (L_M(x) in MacFall's paper)
             self.l_m_interp = InterpolatorCreator.fit_length_factor(self.neumann_control_points)
-            # fit normal vector (n_hat(x) in MacFall's paper)
             self.n_hat_interp = InterpolatorCreator.fit_normal_vector(self.neumann_control_points)
         else:
-            # the following fields are not needed when we don't have a Neumann boundary condition
             self.neumann_control_points = None
             self.g_interp = None
             self.l_m_interp = None
             self.n_hat_interp = None
 
-    # A_D(x) in MacFall's paper
     def a_d(self, *dimensions):
         return self.a_d_interp.interpolate(dimensions)
 
-    # L_D(x) in MacFall's paper
     def l_d(self, *dimensions):
         return self.l_d_interp.interpolate(dimensions)
 
-    # g(x) in MacFall's paper
     def g(self, *dimensions):
         return self.g_interp.interpolate(dimensions)
 
-    # L_M(x) in MacFall's paper
     def l_m(self, *dimensions):
         return self.l_m_interp.interpolate(dimensions)
 
-    # F(x) in MacFall's paper
     def f(self, net, *dimensions):
-        # return self.l_d(*dimensions) * self._nn_output(net, *dimensions)
         return self.l_d(*dimensions) * _network_output_2input(net, *dimensions, self.ith_unit)
 
-    # n^hat(x) in MacFall's paper
     def n_hat(self, *dimensions):
         return self.n_hat_interp.interpolate(dimensions)
 
-    # A_M(x) in MacFall's paper
     def a_m(self, net, *dimensions):
-        # when we don't have a Neumann boundary condition
         if self.neumann_control_points is None:
             return 0.0
 
@@ -526,232 +456,81 @@ class CustomBoundaryCondition(IrregularBoundaryCondition):
 
         return l_ds * l_ms * numer / denom
 
-    # This method is called by Monitor2D when creating a contour. It returns a
-    # mask indicating whether a point are inside the problem. The mask is used
-    # to crop the contour plot. Here we assume if a point (x, y) have positive
-    # length factor L_D(x, y) then it's inside the domain.
     def in_domain(self, *dimensions):
-        # when we don't have a Neumann boundary condition
         if self.neumann_control_points is None:
             return self.l_d(*dimensions) > 0.0
         return (self.l_d(*dimensions) > 0.0) & (self.l_m(*dimensions) > 0.0)
 
     def enforce(self, net, *dimensions):
-        # enforce Dirichlet and Neumann boundary condition, equation[10] in MAcfall's paper
         return self.a_d(*dimensions) + self.a_m(net, *dimensions) + self.f(net, *dimensions)
 
-    # This method removes the control points that are too close to each other
-    # and sort the control points 'clockwise' (the center is the center_point).
-    # We sort the points because we want to map them to equally spaced points on
-    # a circle, and the points need to be ordered so that we can assign corresponding
-    # target points.
     @staticmethod
     def _clean_control_points(control_points, center_point):
-
-        def gt_zero(number):
-            return number >= ROUND_TO_ZERO
-
-        def lt_zero(number):
-            return number <= -ROUND_TO_ZERO
-
-        def eq_zero(number):
-            return abs(number) < ROUND_TO_ZERO
-
-        def clockwise(cp):
-            px, py = cp.loc
-            cx, cy = center_point.loc
-            dx, dy = px - cx, py - cy
-            if gt_zero(dx) and eq_zero(dy):
-                tier = 0
-            elif gt_zero(dx) and lt_zero(dy):
-                tier = 1
-            elif eq_zero(dx) and lt_zero(dy):
-                tier = 2
-            elif lt_zero(dx) and lt_zero(dy):
-                tier = 3
-            elif lt_zero(dx) and eq_zero(dy):
-                tier = 4
-            elif lt_zero(dx) and gt_zero(dy):
-                tier = 5
-            elif eq_zero(dx) and gt_zero(dy):
-                tier = 6
-            elif gt_zero(dx) and gt_zero(dy):
-                tier = 7
-            # assume that the second key won't be used
-            # - i.e. on the same side of center point (left or right)
-            # there won't be multiple control points that
-            # has the same y-coordinate as the center point
-            return (tier, dx / dy if not eq_zero(dy) else 0)
-
-        control_points.sort(key=clockwise)
-
-        def same_point(p1, p2):
-            return eq_zero(p1.loc[0] - p2.loc[0]) and eq_zero(p1.loc[1] - p2.loc[1])
-
-        # remove the control points that are defined more than once
-        unique_control_points = [control_points[0]]
-        for cp in control_points[1:]:
-            if not same_point(cp, unique_control_points[-1]):
-                unique_control_points.append(cp)
-        return unique_control_points
+        pass
 
 
 class InterpolatorCreator:
 
-    # Create an interpolator to map (x, y) -> A_D(x, y)
     @staticmethod
     def fit_surface(dirichlet_or_neumann_control_points):
-        # specify input and output of thin plate spline
-        from_points = dirichlet_or_neumann_control_points
-        to_values = [dncp.val for dncp in dirichlet_or_neumann_control_points]
-        # fit thin plate spline and save coefficients
-        coefs = InterpolatorCreator._solve_thin_plate_spline(from_points, to_values)
-        return SurfaceInterpolator(coefs, dirichlet_or_neumann_control_points)
+        pass
 
-    # Create an interpolator to map (x, y) -> L_D(x, y)
     @staticmethod
     def fit_length_factor(control_points, radius=0.5):
-        # specify input and output of thin plate spline
-        from_points = control_points
-        to_points = InterpolatorCreator._create_circular_targets(control_points, radius)
-        n_dim = to_points[0].dim
-        to_values_each_dim = [[tp.loc[i] for tp in to_points] for i in range(n_dim)]
-        # fit thin plate spline and save coefficients
-        coefs_each_dim = [
-            InterpolatorCreator._solve_thin_plate_spline(from_points, to_values)
-            for to_values in to_values_each_dim
-        ]
+        pass
 
-        return LengthFactorInterpolator(coefs_each_dim, control_points, radius)
-
-    # Create an interpolator to map (x, y) -> \hat{n}(x, y) (The normal vector
-    # on the boundary). It's only used in Neumann boundary conditions, which is
-    # not working yet.
     @staticmethod
     def fit_normal_vector(neumann_control_points):
-        # specify input and output of thin plate spline
-        from_points = neumann_control_points
-        to_points = [
-            Point(loc=(ncp.normal_vector[0], ncp.normal_vector[1]))
-            for ncp in neumann_control_points
-        ]
-        n_dim = to_points[0].dim
-        to_values_each_dim = [[tp.loc[i] for tp in to_points] for i in range(n_dim)]
-        # fit thin plate spline and save coefficients
-        coefs_each_dim = [
-            InterpolatorCreator._solve_thin_plate_spline(from_points, to_values)
-            for to_values in to_values_each_dim
-        ]
-        return NormalVectorInterpolator(coefs_each_dim, neumann_control_points)
+        pass
 
-    # All the interpolators are based on thin plate splines. This method fits the
-    # coefficients of the thin plate spline.
     @staticmethod
     def _solve_thin_plate_spline(from_points, to_values):
-        assert len(from_points) == len(to_values)
-        n_dims = from_points[0].dim
-        n_pnts = len(from_points)
-        n_eqs = n_dims + n_pnts + 1
-
-        # weights of the eq_no'th equation
-        def equation_weights(eq_no):
-
-            weights = np.zeros(n_eqs)
-
-            # the first M equations (M is the number of control points)
-            if eq_no < n_pnts:
-                p = from_points[eq_no]
-                # the first M weights
-                for i, fp in enumerate(from_points):
-                    ri_sq = Interpolator._ri_sq_thin_plate_spline_pretrain(p, fp)
-                    weights[i] = ri_sq * np.log(ri_sq)
-                # the M+1'th weight
-                weights[n_pnts] = 1.0
-                # the rest #dimension weights
-                for j in range(n_dims):
-                    weights[n_pnts + 1 + j] = p.loc[j]
-            # the M+1'th equation
-            elif eq_no < n_pnts + n_dims:
-                j = eq_no - n_pnts
-                for i in range(n_pnts):
-                    weights[i] = from_points[i].loc[j]
-            # the rest #dimension equations
-            elif eq_no == n_pnts + n_dims:
-                weights[:n_pnts] = 1.0
-            else:
-                raise ValueError(f'Invalid equation number: {eq_no}')
-
-            return weights
-
-        # create linear system
-        W = np.zeros((n_eqs, n_eqs))
-        for eq_no in range(n_eqs):
-            W[eq_no] = equation_weights(eq_no)
-        b = np.zeros(n_eqs)
-        b[:n_pnts] = to_values
-
-        # solve linear system and return coefficients
-        return np.linalg.solve(W, b)
+        pass
 
     @staticmethod
     def _create_circular_targets(control_points, radius):
-        # create equally spaced target points, this is for 2-d control points
-        # TODO 3-d control points
-        return [
-            Point((radius * np.cos(theta), radius * np.sin(theta)))
-            for theta in -np.linspace(0, 2 * np.pi, len(control_points), endpoint=False)
-        ]
+        pass
 
 
-# Interpolatror are used for calculating L_D, A_D and \hat{n}
 class Interpolator:
 
     def interpolate(self, dimensions):
         raise NotImplementedError
 
-    # calculate the output of the thin plate spline using the fitted coefficients
     @staticmethod
     def _interpolate_by_thin_plate_spline(coefs, control_points, dimensions):
         n_pnts = len(control_points)
         to_value_unfinished = torch.zeros_like(dimensions[0])
-        # the first M basis functions (M is the number of control points)
         for coef, cp in zip(coefs, control_points):
             ri_sq = Interpolator._ri_sq_thin_plate_spline_trainval(cp, dimensions)
             to_value_unfinished += coef * ri_sq * torch.log(ri_sq)
-        # the M+1'th basis function
         to_value_unfinished += coefs[n_pnts]
-        # the rest #dimension basis functions
         for j, d in enumerate(dimensions):
             to_value_unfinished += coefs[n_pnts + 1 + j] * d
         to_value = to_value_unfinished
         return to_value
 
-    # to be used in fitting coefficients of thin plate spline
     @staticmethod
     def _ri_sq_thin_plate_spline_pretrain(point_i, point_j, stiffness=0.01):
-        return sum((di - dj) ** 2 for di, dj in zip(point_i.loc, point_j.loc)) + stiffness ** 2
+        pass
 
-    # to be used in transforming output of neural networks
     @staticmethod
     def _ri_sq_thin_plate_spline_trainval(point_i, dimensions, stiffness=0.01):
         return sum((d - di) ** 2 for di, d in zip(point_i.loc, dimensions)) + stiffness ** 2
 
 
-# calculating A_D
 class SurfaceInterpolator(Interpolator):
 
     def __init__(self, coefs, control_points):
         self.coefs = coefs
         self.control_points = control_points
 
-    # Return A_D(x, y), dimensions are a tuple: (x-tensor, y-tensor)
     def interpolate(self, dimensions):
         return Interpolator._interpolate_by_thin_plate_spline(
             self.coefs, self.control_points, dimensions
         )
 
 
-# calculating L_D
 class LengthFactorInterpolator(Interpolator):
 
     def __init__(self, coefs_each_dim, control_points, radius):
@@ -759,7 +538,6 @@ class LengthFactorInterpolator(Interpolator):
         self.control_points = control_points
         self.radius = radius
 
-    # Return L_D(x, y), dimensions are a tuple: (x-tensor, y-tensor)
     def interpolate(self, dimensions):
         dimensions_mapped = tuple(
             Interpolator._interpolate_by_thin_plate_spline(
@@ -770,15 +548,12 @@ class LengthFactorInterpolator(Interpolator):
         return self.radius ** 2 - sum(d ** 2 for d in dimensions_mapped)
 
 
-# calculating \hat{n}. It's only used in Neumann boundary conditions, which is
-# not working yet.
 class NormalVectorInterpolator(Interpolator):
 
     def __init__(self, coefs_each_dim, neumann_control_points):
         self.coefs_each_dim = coefs_each_dim
         self.neumann_control_points = neumann_control_points
 
-    # Return \hat{n}(x, y), dimensions are a tuple: (x-tensor, y-tensor)
     def interpolate(self, dimensions):
         dimensions_mapped = tuple(
             Interpolator._interpolate_by_thin_plate_spline(

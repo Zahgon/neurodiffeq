@@ -14,11 +14,6 @@ from abc import ABC, abstractmethod
 
 
 class _LoggerMixin:
-    r"""A mix-in class that has a standard Python `logger`.
-
-    :param logger: The logger or its name (str). Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-    """
 
     def __init__(self, logger=None):
         if not logger:
@@ -30,12 +25,6 @@ class _LoggerMixin:
 
 
 class BaseCallback(ABC, _LoggerMixin):
-    r"""Base class of all callbacks.
-    The class should not be directly subclassed. Instead, subclass `ActionCallback` or `ConditionCallback`.
-
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-    """
 
     def __init__(self, logger=None):
         _LoggerMixin.__init__(self, logger=logger)
@@ -46,31 +35,12 @@ class BaseCallback(ABC, _LoggerMixin):
 
 
 class ActionCallback(BaseCallback):
-    r"""Base class of action callbacks.
-    Custom callbacks that *performs an action* should subclass this class.
-
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-    """
 
     def conditioned_on(self, condition_callback):
-        if not isinstance(condition_callback, ConditionCallback):
-            raise TypeError(f'{condition_callback} is not an instance of ConditionCallback')
-        return condition_callback.set_action_callback(self)
+        pass
 
 
 class MonitorCallback(ActionCallback):
-    r"""A callback for updating the monitor plots (and optionally saving the fig to disk).
-
-    :param monitor: The underlying monitor responsible for plotting solutions.
-    :type monitor: `neurodiffeq.monitors.BaseMonitor`
-    :param fig_dir: Directory for saving monitor figs; if not specified, figs will not be saved.
-    :type fig_dir: str
-    :param format: Format for saving figures: {'jpg', 'png' (default), ...}.
-    :type format: str
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-    """
 
     def __init__(self, monitor, fig_dir=None, format=None, logger=None, **kwargs):
         super(MonitorCallback, self).__init__(logger=logger)
@@ -78,7 +48,6 @@ class MonitorCallback(ActionCallback):
         self.fig_dir = fig_dir
         self.format = format or 'png'
 
-        # deprecation warnings
         for kw in ['check_against_local', 'check_against']:
             if kwargs.pop(kw, None) is not None:
                 warnings.warn(
@@ -95,7 +64,6 @@ class MonitorCallback(ActionCallback):
         if kwargs:
             raise ValueError(f'Unknown keyword argument(s): {list(kwargs.keys())}')
 
-        # make dir for figs
         if fig_dir:
             _safe_mkdir(fig_dir)
 
@@ -112,33 +80,12 @@ class MonitorCallback(ActionCallback):
 
 
 class StopCallback(ActionCallback):
-    r"""A callback that stops the training/validation process and terminates the ``solver.fit()`` call.
-
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-
-    .. note::
-        This callback should always be used together with a `ConditionCallback`,
-        otherwise the ``solver.fit()`` call will exit after first epoch.
-    """
 
     def __call__(self, solver):
         solver._stop_training = True
 
 
 class CheckpointCallback(ActionCallback):
-    r"""A callback that saves the networks (and their weights) to the disk.
-
-    :param ckpt_dir:
-        The directory to save model checkpoints.
-        If non-existent, the directory is automatically created at instantiation time.
-    :type ckpt_dir: str
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-
-    .. note::
-        Unless the callback is called twice within the same second, new checkpoints will not overwrite existing ones.
-    """
 
     def __init__(self, ckpt_dir, logger=None):
         super(CheckpointCallback, self).__init__(logger=logger)
@@ -156,15 +103,6 @@ class CheckpointCallback(ActionCallback):
 
 
 class ReportCallback(ActionCallback):
-    r"""A callback that logs the training/validation information, including
-
-    - number of batches (train/valid)
-    - batch size (train/valid)
-    - generator to be used (train/valid)
-
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-    """
 
     def __call__(self, solver):
         self.logger.info(
@@ -185,33 +123,6 @@ ReportOnFitCallback = warn_deprecate_class(ReportCallback)
 
 
 class EveCallback(ActionCallback):
-    r"""A callback that readjusts the number of batches for training based on latest value of a specified metric.
-    The number of batches will be :math:`\displaystyle{\left(n_0 \cdot 2^k\right)}`
-    or :math:`n_\mathrm{max}` (if specified), whichever is lower,
-    where :math:`\displaystyle{k=\max\left(0,\left\lfloor\log_p{\frac{v}{v_0}}\right\rfloor\right)}`
-    and :math:`v` is the value of the metric in the last epoch.
-
-    :param base_value:
-        Base value of the specified metric (:math:`v_0` in the above equation).
-        When the metric value is higher than ``base_value``, number of batches will be :math:`n_0`.
-    :type base_value: float
-    :param double_at:
-        The ratio at which the batch number will be doubled (:math:`p` in the above equation).
-        When :math:`\displaystyle{\frac{v}{v_0}=p^k}`,
-        the number of batches will be :math:`\displaystyle{\left(n_0 \cdot 2^k\right)}`.
-    :type double_at: float
-    :param n_0: Minimum number of batches (:math:`n_0`). Defaults to 1.
-    :type n_0: int
-    :param n_max: Maximum number of batches (:math:`n_\mathrm{max}`). Defaults to infinity.
-    :type n_max: int
-    :param use_train: Whether to use the training (instead of validation) phase value of the metric. Defaults to True.
-    :type use_train: bool
-    :param metric:
-        Name of which metric to use. Must be 'loss' or present in ``solver.metrics_fn.keys()``. Defaults to 'loss'.
-    :type metric: str
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-    """
     EPS = 1e-4
 
     def __init__(self, base_value=1.0, double_at=0.1, n_0=1, n_max=None, use_train=True, metric='loss', logger=None):
@@ -231,16 +142,6 @@ class EveCallback(ActionCallback):
 
 
 class SimpleTensorboardCallback(ActionCallback):
-    r"""A callback that writes all metric values to the disk for TensorBoard to plot.
-    Tensorboard must be installed for this callback to work.
-
-    :param writer:
-        The summary writer for writing values to disk.
-        Defaults to a new ``SummaryWriter`` instance created with default kwargs.
-    :type writer: ``torch.utils.tensorboard.SummaryWriter``
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-    """
 
     def __init__(self, writer=None, logger=None):
         super(SimpleTensorboardCallback, self).__init__(logger=logger)
@@ -263,26 +164,6 @@ class SimpleTensorboardCallback(ActionCallback):
 
 
 class SetLossFn(ActionCallback):
-    r"""A callback that sets the ``criterion`` (a.k.a. loss function) of the solver.
-    Best used together with a condition callback.
-
-    :param loss_fn:
-        The loss function to be set for the solver. It can be
-
-        - An instance of ``torch.nn.modules.loss._Loss``
-          which computes loss of the PDE/ODE residuals against a zero tensor.
-        - A callable object which maps residuals, function values, and input coordinates to a scalar loss; or
-        - A str which is present in ``neurodiffeq.losses._losses.keys()``.
-
-    :type loss_fn: ``torch.nn.modules.loss._Loss`` or callable or str.
-    :param reset:
-        If True, the criterion will be reset every time the callback is called.
-        Otherwise, the criterion will only be set once.
-        Defaults to False.
-    :type reset: bool
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-    """
 
     @deprecated_alias(criterion='loss_fn')
     def __init__(self, loss_fn, reset=False, logger=None):
@@ -294,7 +175,6 @@ class SetLossFn(ActionCallback):
     def __call__(self, solver):
         if self.reset or (not self.called):
             self.called = True
-            # noinspection PyProtectedMember
             solver._set_loss_fn(self.loss_fn)
 
 
@@ -302,29 +182,6 @@ SetCriterion = warn_deprecate_class(SetLossFn)
 
 
 class SetOptimizer(ActionCallback):
-    r"""A callback that sets the optimizer of the solver. Best used together with a condition callback.
-
-    - If an optimizer *instance* is passed, it must contain a sequence of parameters to be updated.
-    - If an optimizer *subclass* is passed, optimizer_args and optimizer_kwargs can be supplied.
-
-    :param optimizer: Optimizer instance (or its class) to be set.
-    :type optimizer: type or ``torch.optim.Optimizer``
-    :param optimizer_args:
-        Positional arguments to be passed to the optimizer constructor in addition to the parameter sequence.
-        Ignored if optimizer is an instance (instead of a class).
-    :type optimizer_args: tuple
-    :param optimizer_kwargs:
-        Keyword arguments to be passed to the optimizer constructor in addition to the parameter sequence.
-        Ignored if optimizer is an instance (instead of a class).
-    :type optimizer_kwargs: dict
-    :param reset:
-        If True, the optimizer will be reset every time the callback is called.
-        Otherwise, the optimizer will only be set once.
-        Defaults to False.
-    :type reset: bool
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-    """
 
     def __init__(self, optimizer, optimizer_args=None, optimizer_kwargs=None, reset=False, logger=None):
         super(SetOptimizer, self).__init__(logger=logger)
@@ -347,16 +204,6 @@ class SetOptimizer(ActionCallback):
 
 
 class ConditionCallback(BaseCallback):
-    r"""Base class of condition callbacks.
-    Custom callbacks that *determines whether some action shall be performed* should subclass this class and overwrite
-    the ``.condition`` method.
-
-    Instances of ``ConditionCallback`` (and its children classes) support (short-circuit) evaluation of
-    common boolean operations: ``&`` (and), ``|`` (or), ``~`` (not), and ``^`` (xor).
-
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-    """
 
     def __init__(self, logger=None):
         super(ConditionCallback, self).__init__(logger=logger)
@@ -396,16 +243,6 @@ class ConditionCallback(BaseCallback):
 
 
 class AndCallback(ConditionCallback):
-    r"""A ``ConditionCallback`` which evaluates to True iff none of its sub-``ConditionCallback`` s evaluates to False.
-
-    :param condition_callbacks: List of sub-``ConditionCallback`` s.
-    :type condition_callbacks: list[``ConditionCallback``]
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-
-    .. note::
-        ``c = AndCallback([c1, c2, c3])`` can be simplified as ``c = c1 & c2 & c3``.
-    """
 
     def __init__(self, condition_callbacks, logger=None):
         super(AndCallback, self).__init__(logger=logger)
@@ -420,16 +257,6 @@ class AndCallback(ConditionCallback):
 
 
 class OrCallback(ConditionCallback):
-    r"""A ``ConditionCallback`` which evaluates to False iff none of its sub-``ConditionCallback`` s evaluates to True.
-
-    :param condition_callbacks: List of sub-``ConditionCallback`` s.
-    :type condition_callbacks: list[``ConditionCallback``]
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-
-    .. note::
-        ``c = OrCallback([c1, c2, c3])`` can be simplified as ``c = c1 | c2 | c3``.
-    """
 
     def __init__(self, condition_callbacks, logger=None):
         super(OrCallback, self).__init__(logger=logger)
@@ -443,16 +270,6 @@ class OrCallback(ConditionCallback):
 
 
 class NotCallback(ConditionCallback):
-    r"""A ``ConditionCallback`` which evaluates to True iff its sub-``ConditionCallback`` evaluates to False.
-
-    :param condition_callback: The sub-``ConditionCallback`` .
-    :type condition_callback: ConditionCallback
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-
-    .. note::
-        ``c = NotCallback(c1)`` can be simplified as ``c = ~c1``.
-    """
 
     def __init__(self, condition_callback, logger=None):
         super(NotCallback, self).__init__(logger=logger)
@@ -463,17 +280,6 @@ class NotCallback(ConditionCallback):
 
 
 class XorCallback(ConditionCallback):
-    r"""A ``ConditionCallback`` which evaluates to False iff
-    evenly many of its sub-``ConditionCallback`` s evaluates to True.
-
-    :param condition_callbacks: List of sub-``ConditionCallback`` s.
-    :type condition_callbacks: list[``ConditionCallback``]
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-
-    .. note::
-        ``c = XorCallback([c1, c2, c3])`` can be simplified as ``c = c1 ^ c2 ^ c3``.
-    """
 
     def __init__(self, condition_callbacks, logger=None):
         super(XorCallback, self).__init__(logger=logger)
@@ -484,71 +290,36 @@ class XorCallback(ConditionCallback):
 
 
 class TrueCallback(ConditionCallback):
-    r"""A ``ConditionCallback`` which always evaluates to True.
-
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-    """
 
     def condition(self, solver) -> bool:
         return True
 
 
 class FalseCallback(ConditionCallback):
-    r"""A ``ConditionCallback`` which always evaluates to False.
-
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-    """
 
     def condition(self, solver) -> bool:
         return False
 
 
 class OnFirstLocal(ConditionCallback):
-    r"""A ``ConditionCallback`` which evaluates to True only on the first local epoch.
-
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-    """
 
     def condition(self, solver) -> bool:
         return solver.local_epoch == 1
 
 
 class OnFirstGlobal(ConditionCallback):
-    r"""A ``ConditionCallback`` which evaluates to True only on the first global epoch.
-
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-    """
 
     def condition(self, solver) -> bool:
         return solver.global_epoch == 1
 
 
 class OnLastLocal(ConditionCallback):
-    r"""A ``ConditionCallback`` which evaluates to True only on the last local epoch.
-
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-    """
 
     def condition(self, solver) -> bool:
         return solver.local_epoch == solver._max_local_epoch
 
 
 class PeriodLocal(ConditionCallback):
-    r"""A ``ConditionCallback`` which evaluates to True only when the local epoch count equals
-    :math:`\mathrm{period}\times n + \mathrm{offset}`.
-
-    :param period: Period of the callback.
-    :type period: int
-    :param offset: Offset of the period. Defaults to 0.
-    :type offset: int
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-    """
 
     def __init__(self, period, offset=0, logger=None):
         super(PeriodLocal, self).__init__(logger=logger)
@@ -560,16 +331,6 @@ class PeriodLocal(ConditionCallback):
 
 
 class PeriodGlobal(ConditionCallback):
-    r"""A ``ConditionCallback`` which evaluates to True only when the global epoch count equals
-    :math:`\mathrm{period}\times n + \mathrm{offset}`.
-
-    :param period: Period of the callback.
-    :type period: int
-    :param offset: Offset of the period. Defaults to 0.
-    :type offset: int
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-    """
 
     def __init__(self, period, offset=0, logger=None):
         super(PeriodGlobal, self).__init__(logger=logger)
@@ -581,16 +342,6 @@ class PeriodGlobal(ConditionCallback):
 
 
 class ClosedIntervalLocal(ConditionCallback):
-    r"""A ``ConditionCallback`` which evaluates to True only when
-    :math:`l_0 \leq l \leq l_1`, where :math:`l` is the local epoch count.
-
-    :param min: Lower bound of the closed interval (:math:`l_0` in the above inequality). Defaults to None.
-    :type min: int
-    :param max: Upper bound of the closed interval (:math:`l_1` in the above inequality). Defaults to None.
-    :type max: int
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-    """
 
     def __init__(self, min=None, max=None, logger=None):
         super(ClosedIntervalLocal, self).__init__(logger=logger)
@@ -602,16 +353,6 @@ class ClosedIntervalLocal(ConditionCallback):
 
 
 class ClosedIntervalGlobal(ConditionCallback):
-    r"""A ``ConditionCallback`` which evaluates to True only when
-    :math:`g_0 \leq g \leq g_1`, where :math:`g` is the global epoch count.
-
-    :param min: Lower bound of the closed interval (:math:`g_0` in the above inequality). Defaults to None.
-    :type min: int
-    :param max: Upper bound of the closed interval (:math:`g_1` in the above inequality). Defaults to None.
-    :type max: int
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-    """
 
     def __init__(self, min=None, max=None, logger=None):
         super(ClosedIntervalGlobal, self).__init__(logger=logger)
@@ -623,13 +364,6 @@ class ClosedIntervalGlobal(ConditionCallback):
 
 
 class Random(ConditionCallback):
-    r"""A ``ConditionCallback`` which has a certain probability of evaluating to True.
-
-    :param probability: The probability of this callback evaluating to True (between 0 and 1).
-    :type probability: float
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-    """
 
     def __init__(self, probability, logger=None):
         super(Random, self).__init__(logger=logger)
@@ -663,21 +397,6 @@ class _RepeatedMetricChange(ConditionCallback):
 
 
 class RepeatedMetricUp(_RepeatedMetricChange):
-    r"""A ``ConditionCallback`` which evaluates to True if a certain metric for the latest :math:`n` epochs
-    kept increasing by at least some margin.
-
-    :param at_least_by: The said margin.
-    :type at_least_by: float
-    :param use_train: Whether to use the metric value in the training (rather than validation) phase.
-    :type use_train: bool
-    :param metric:
-        Name of which metric to use. Must be 'loss' or present in ``solver.metrics_fn.keys()``. Defaults to 'loss'.
-    :type metric: str
-    :param repetition: Number of times the metric should increase by the said margin (the :math:`n`).
-    :type repetition: int
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-    """
 
     def __init__(self, at_least_by=0.0, use_train=True, metric='loss', repetition=1, logger=None):
         super(RepeatedMetricUp, self).__init__(
@@ -690,21 +409,6 @@ class RepeatedMetricUp(_RepeatedMetricChange):
 
 
 class RepeatedMetricDown(_RepeatedMetricChange):
-    r"""A ``ConditionCallback`` which evaluates to True if a certain metric for the latest :math:`n` epochs
-    kept decreasing by at least some margin.
-
-    :param at_least_by: The said margin.
-    :type at_least_by: float
-    :param use_train: Whether to use the metric value in the training (rather than validation) phase.
-    :type use_train: bool
-    :param metric:
-        Name of which metric to use. Must be 'loss' or present in ``solver.metrics_fn.keys()``. Defaults to 'loss'.
-    :type metric: str
-    :param repetition: Number of times the metric should decrease by the said margin (the :math:`n`).
-    :type repetition: int
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-    """
 
     def __init__(self, at_least_by=0.0, use_train=True, metric='loss', repetition=1, logger=None):
         super(RepeatedMetricDown, self).__init__(
@@ -717,21 +421,6 @@ class RepeatedMetricDown(_RepeatedMetricChange):
 
 
 class RepeatedMetricConverge(_RepeatedMetricChange):
-    r"""A ``ConditionCallback`` which evaluates to True if a certain metric for the latest :math:`n` epochs
-    kept converging within some tolerance :math:`\varepsilon`.
-
-    :param epsilon: The said tolerance.
-    :type epsilon: float
-    :param use_train: Whether to use the metric value in the training (rather than validation) phase.
-    :type use_train: bool
-    :param metric:
-        Name of which metric to use. Must be 'loss' or present in ``solver.metrics_fn.keys()``. Defaults to 'loss'.
-    :type metric: str
-    :param repetition: Number of times the metric should converge within said tolerance.
-    :type repetition: int
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-    """
 
     def __init__(self, epsilon, use_train=True, metric='loss', repetition=1, logger=None):
         super(RepeatedMetricConverge, self).__init__(
@@ -744,21 +433,6 @@ class RepeatedMetricConverge(_RepeatedMetricChange):
 
 
 class RepeatedMetricDiverge(_RepeatedMetricChange):
-    r"""A ``ConditionCallback`` which evaluates to True if a certain metric for the latest :math:`n` epochs
-    kept diverging beyond some gap.
-
-    :param gap: The said gap.
-    :type gap: float
-    :param use_train: Whether to use the metric value in the training (rather than validation) phase.
-    :type use_train: bool
-    :param metric:
-        Name of which metric to use. Must be 'loss' or present in ``solver.metrics_fn.keys()``. Defaults to 'loss'.
-    :type metric: str
-    :param repetition: Number of times the metric should diverge beyond said gap.
-    :type repetition: int
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-    """
 
     def __init__(self, gap, use_train=True, metric='loss', repetition=1, logger=None):
         super(RepeatedMetricDiverge, self).__init__(
@@ -771,21 +445,6 @@ class RepeatedMetricDiverge(_RepeatedMetricChange):
 
 
 class RepeatedMetricBelow(_RepeatedMetricChange):
-    r"""A ``ConditionCallback`` which evaluates to True if a certain metric has been less than
-    a given value :math:`v` for the latest :math:`n` epochs.
-
-    :param threshold: The value `v`.
-    :type threshold: float
-    :param use_train: Whether to use the metric value in the training (rather than validation) phase.
-    :type use_train: bool
-    :param metric:
-        Name of which metric to use. Must be 'loss' or present in ``solver.metrics_fn.keys()``. Defaults to 'loss'.
-    :type metric: str
-    :param repetition: Number of times the metric should diverge beyond said gap.
-    :type repetition: int
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-    """
 
     def __init__(self, threshold, use_train, metric, repetition, logger):
         super(RepeatedMetricBelow, self).__init__(
@@ -798,21 +457,6 @@ class RepeatedMetricBelow(_RepeatedMetricChange):
 
 
 class RepeatedMetricAbove(_RepeatedMetricChange):
-    r"""A ``ConditionCallback`` which evaluates to True if a certain metric has been greater than
-    a given value :math:`v` for the latest :math:`n` epochs.
-
-    :param threshold: The value `v`.
-    :type threshold: float
-    :param use_train: Whether to use the metric value in the training (rather than validation) phase.
-    :type use_train: bool
-    :param metric:
-        Name of which metric to use. Must be 'loss' or present in ``solver.metrics_fn.keys()``. Defaults to 'loss'.
-    :type metric: str
-    :param repetition: Number of times the metric should diverge beyond said gap.
-    :type repetition: int
-    :param logger: The logger (or its name) to be used for this callback. Defaults to the 'root' logger.
-    :type logger: str or ``logging.Logger``
-    """
 
     def __init__(self, threshold, use_train, metric, repetition, logger):
         super(RepeatedMetricAbove, self).__init__(

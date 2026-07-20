@@ -12,8 +12,7 @@ def warn_deprecate_class(new_class):
 
     @functools.wraps(new_class)
     def old_class_getter(*args, **kwargs):
-        warnings.warn(f"This class name is deprecated, use {new_class} instead", FutureWarning)
-        return new_class(*args, **kwargs)
+        pass
 
     return old_class_getter
 
@@ -29,12 +28,7 @@ def deprecated_alias(**aliases):
     """
 
     def deco(f):
-        @functools.wraps(f)  # preserves signature and docstring
-        def wrapper(*args, **kwargs):
-            _rename_kwargs(f.__name__, kwargs, aliases)
-            return f(*args, **kwargs)
-
-        return wrapper
+        pass
 
     return deco
 

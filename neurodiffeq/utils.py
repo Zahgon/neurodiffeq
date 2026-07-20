@@ -8,41 +8,11 @@ import re
 
 
 def set_tensor_type(device=None, float_bits=32):
-    """Set the default torch tensor type to be used with neurodiffeq.
-
-    :param device: Either "cpu", "cuda" or "cuda:x" ("gpu") where "x" is the device number; defaults to "cuda" if available.
-    :type device: str
-    :param float_bits: Length of float numbers. Either 32 (float) or 64 (double); defaults to 32.
-    :type float_bits: int
-
-    .. note:
-        The function calls ``torch.set_default_tensor_type`` under the hood.
-        Therefore the ``device`` and ``float_bits`` also becomes default tensor type for PyTorch.
-    """
-    if not isinstance(float_bits, int):
-        raise ValueError(f"float_bits must be int, got {type(float_bits)}")
-    if float_bits == 32:
-        torch.set_default_dtype(torch.float32)
-    elif float_bits == 64:
-        torch.set_default_dtype(torch.float64)
-    else:
-        raise ValueError(f"float_bits must be 32 or 64, got {float_bits}")
-
-    if device is None:
-        if torch.cuda.is_available():
-            device = "cuda"
-        else:
-            device = "cpu"
-    
-    cuda_regex = re.compile(r'cuda(?::\d+)?')
-    if device != "cpu" and not cuda_regex.match(device):
-        raise ValueError(f"Unknown device '{device}'; device must be either 'cuda', 'cuda:x' where x is the device number, 'cpu'")
-
-    torch.set_default_device(device)
+    pass
 
 
 def safe_mkdir(path):
-    Path(path).mkdir(parents=True, exist_ok=True)
+    pass
 
 
 def set_seed(seed_value, ignore_numpy=False, ignore_torch=False, ignore_random=False):
@@ -69,39 +39,16 @@ def set_seed(seed_value, ignore_numpy=False, ignore_torch=False, ignore_random=F
 
 
 def get_residual_info(solution, data, diff_eqs, highest_order=0, detach=True):
-    # XXX this function is not tested
-    warnings.warn("The neurodiffeq.get_residual_info() function is not tested")
-    from .neurodiffeq import diff
-
-    funcs = solution(data)
-    residuals = diff_eqs(*funcs, *data)
-
-    ret = [residuals]
-    for order in range(1, highest_order + 1):
-        ret.append([[diff(pdr, x) for pdr, x in zip(prev_drs, data)] for prev_drs in ret[-1]])
-
-    if detach:
-        def recurse(l):
-            for i, entry in enumerate(l):
-                if isinstance(entry, torch.Tensor):
-                    l[i] = entry.detach()
-                else:
-                    recurse(entry)
-
-        recurse(ret)
-
-    return ret
+    pass
 
 
 def split_columns(mat):
-    if len(mat.shape) != 2:
-        raise ValueError(f'matrix must have 2 dimensions, but matrix has shape {mat.shape}.')
-    return [mat[:, j] for j in range(mat.shape[1])]
+    pass
 
 
 def hstack(tensors):
-    return torch.stack(tensors, dim=1)
+    pass
 
 
 def vstack(tensors):
-    return torch.stack(tensors, dim=0)
+    pass
